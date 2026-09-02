@@ -92,6 +92,19 @@ class TaggingTask(task.Task):
         self.stop()
 
 
+class PictureEmbedVerificationError(Exception):
+    """
+    Raised when a picture was supposedly embedded but isn't actually present
+    when the track file is re-opened with a fresh mutagen object.
+
+    Historically, EmbedPictureTask called FLAC.add_picture() without ever
+    calling FLAC.save() (fixed in PR #610, but never in a released
+    version), so --cover-art embed/complete silently did nothing on every
+    version anyone would actually pip install. Checking the in-memory
+    object never would have caught that; only reopening the file does.
+    """
+
+
 class EmbedPictureTask(task.Task):
     description = 'Embed picture to FLAC'
 
@@ -120,19 +133,27 @@ class EmbedPictureTask(task.Task):
 
         from PIL import Image
 
-        im = Image.open(cover_art_filename)
-        # NOTE: the cover art thumbnails we're getting from the Cover Art
-        # Archive should be always in the JPEG format: this check is currently
-        # useless but will leave it here to better handle unexpected formats.
-        if im.format == 'JPEG':
-            mime = 'image/jpeg'
-        elif im.format == 'PNG':
-            mime = 'image/png'
-        else:
-            # we only support png and jpeg
-            logger.warning("no cover art will be added because the fetched "
-                           "image format is unsupported")
-            return
+        with Image.open(cover_art_filename) as im:
+            # NOTE: the cover art thumbnails we're getting from the Cover
+            # Art Archive should be always in the JPEG format: this check
+            # is currently useless but will leave it here to better handle
+            # unexpected formats.
+            if im.format == 'JPEG':
+                mime = 'image/jpeg'
+            elif im.format == 'PNG':
+                mime = 'image/png'
+            else:
+                # we only support png and jpeg
+                logger.warning("no cover art will be added because the "
+                               "fetched image format is unsupported")
+                return
+
+            if im.mode not in ('P', 'RGB', 'SRGB'):
+                logger.warning("no cover art will be added because the "
+                               "fetched image mode is unsupported")
+                return
+
+            width, height = im.size
 
         pic = Picture()
         with open(cover_art_filename, 'rb') as f:
@@ -140,11 +161,7 @@ class EmbedPictureTask(task.Task):
 
         pic.type = PictureType.COVER_FRONT
         pic.mime = mime
-        pic.width, pic.height = im.size
-        if im.mode not in ('P', 'RGB', 'SRGB'):
-            logger.warning("no cover art will be added because the fetched "
-                           "image mode is unsupported")
-            return
+        pic.width, pic.height = width, height
 
         return pic
 
@@ -158,5 +175,14 @@ class EmbedPictureTask(task.Task):
             w = FLAC(self.track_path)
             w.add_picture(flac_pic)
             w.save()
+
+            # confirm it actually persisted to disk -- see
+            # PictureEmbedVerificationError's docstring for why this
+            # can't just trust the in-memory object.
+            reopened = FLAC(self.track_path)
+            if not any(p.data == flac_pic.data for p in reopened.pictures):
+                self.setAndRaiseException(PictureEmbedVerificationError(
+                    'picture was not found in %r after embedding' %
+                    self.track_path))
 
         self.stop()

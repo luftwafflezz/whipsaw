@@ -15,6 +15,7 @@ import shutil
 import tempfile
 import unittest
 import wave
+from unittest.mock import patch
 
 from mutagen.flac import FLAC
 from PIL import Image
@@ -178,6 +179,22 @@ class EmbedPictureTaskTestCase(unittest.TestCase):
 
         reopened = FLAC(self.track_path)
         self.assertEqual(len(reopened.pictures), 0)
+
+    def testSilentSaveFailureIsCaught(self):
+        """
+        If FLAC.save() were ever again called-but-a-no-op (the historical
+        bug class PictureEmbedVerificationError exists to catch), the
+        post-write re-open check must raise rather than let the rip
+        proceed as if embedding had succeeded.
+        """
+        with patch('mutagen.flac.FLAC.save', return_value=None):
+            t = encode.EmbedPictureTask(self.track_path, self.cover_path)
+            runner = task.SyncRunner(verbose=False)
+            with self.assertRaises(task.TaskException) as cm:
+                runner.run(t)
+
+        self.assertIsInstance(
+            cm.exception.exception, encode.PictureEmbedVerificationError)
 
 
 if __name__ == '__main__':
