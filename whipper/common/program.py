@@ -23,13 +23,14 @@
 import musicbrainzngs
 import re
 import os
-import shutil
 import time
 
 from tempfile import NamedTemporaryFile
 from packaging.version import Version
 
 from whipper.common import accurip, checksum, common, mbngs, path
+from whipper.common.providers.art import chain as art_chain
+from whipper.common.providers.art.normalize import normalize as normalize_art
 from whipper.program import cdrdao, cdparanoia
 from whipper.result import result
 from whipper.image import image
@@ -513,35 +514,59 @@ class Program:
         stop = track.getIndex(1).absolute - 1
         return start, stop
 
-    @staticmethod
-    def getCoverArt(path, release_id):
+    def getCoverArt(self, path, metadata):
         """
-        Get cover art image from Cover Art Archive.
+        Fetch cover art for the given release, trying each configured
+        cover art provider in turn (Cover Art Archive by default, plus
+        whatever optional providers are enabled) until one succeeds.
 
-        :param path: where to store the fetched image
+        :param path: directory to save the fetched image into
         :type  path: str
-        :param release_id: a release id (self.program.metadata.mbid)
-        :type  release_id: str
+        :param metadata: disc metadata; different providers use different
+                         parts of it (release/release-group MBID for the
+                         Cover Art Archive, artist/title for text-search
+                         based providers)
+        :type  metadata: whipper.common.mbngs.DiscMetadata
         :returns: path to the downloaded cover art, else `None`
         :rtype: str or None
         """
-        cover_art_path = os.path.join(path, 'cover.jpg')
+        provider_chain = art_chain.build_chain(self._config)
+        provider_name, art_result = provider_chain.run('fetch', metadata)
+        if not art_result:
+            logger.debug('no cover art found for this release')
+            return None
 
-        logger.debug('fetching cover art for release: %r', release_id)
+        normalized = normalize_art(
+            art_result,
+            self._config.get_cover_art_max_dimension(),
+            self._config.get_cover_art_format())
+        if not normalized:
+            return None
+
+        cover_art_path = os.path.join(
+            path, 'cover.%s' % normalized.extension)
+
+        # write into the destination directory itself, not the system
+        # temp dir: guarantees os.replace() is an atomic same-filesystem
+        # rename rather than a cross-filesystem copy, and a crash mid-write
+        # can't leave an orphaned temp file anywhere but here, where the
+        # try/finally below is guaranteed to clean it up.
+        tmp_path = None
         try:
-            data = musicbrainzngs.get_image_front(release_id, 500)
-        except musicbrainzngs.WebServiceError as e:
-            logger.error('error fetching cover art: %r', e)
-            return
+            with NamedTemporaryFile(dir=path, prefix='.cover.',
+                                    suffix='.tmp', delete=False) as f:
+                tmp_path = f.name
+                f.write(normalized.data)
+            os.chmod(tmp_path, 0o644)
+            os.replace(tmp_path, cover_art_path)
+            tmp_path = None
+        finally:
+            if tmp_path is not None:
+                os.unlink(tmp_path)
 
-        if data:
-            with NamedTemporaryFile(suffix='.cover.jpg', delete=False) as f:
-                f.write(data)
-            os.chmod(f.name, 0o644)
-            shutil.move(f.name, cover_art_path)
-            logger.debug('cover art fetched at: %r', cover_art_path)
-            return cover_art_path
-        return
+        logger.debug('cover art fetched from %s at: %r',
+                     provider_name, cover_art_path)
+        return cover_art_path
 
     @staticmethod
     def verifyTrack(runner, trackResult):

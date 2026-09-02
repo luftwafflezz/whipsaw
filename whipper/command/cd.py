@@ -386,23 +386,30 @@ Log files will log the path to tracks relative to this directory.
             logger.info("creating output directory %s", dirname)
             os.makedirs(dirname)
 
+        # self.coverArtPath: path to the fetched standalone cover art file,
+        # if any, regardless of whether it also gets embedded into tracks.
+        # self.embedCoverArtPath: what actually gets passed to ripTrack()
+        # for embedding -- None unless the user asked for embed/complete
+        # and a fetch actually succeeded. Kept as two separate values
+        # instead of overloading self.coverArtPath as both "the fetched
+        # file" and "whether to embed it".
         self.coverArtPath = None
-        if (self.options.cover_art in {"embed", "complete"} and
-                importlib.util.find_spec("PIL") is None):
-            logger.warning("the cover art option '%s' won't be honored "
-                           "because the 'pillow' module isn't available",
-                           self.options.cover_art)
-        elif self.options.cover_art in {"file", "embed", "complete"}:
-            if getattr(self.program.metadata, "mbid", None) is not None:
-                self.coverArtPath = self.program.getCoverArt(
-                                        dirname,
-                                        self.program.metadata.mbid)
-            else:
+        self.embedCoverArtPath = None
+        if self.options.cover_art in {"file", "embed", "complete"}:
+            if importlib.util.find_spec("PIL") is None:
+                logger.warning("the cover art option '%s' won't be honored "
+                               "because the 'pillow' module isn't "
+                               "available", self.options.cover_art)
+            elif self.program.metadata is None:
                 logger.warning("the cover art option '%s' won't be honored "
                                "because disc metadata isn't available",
                                self.options.cover_art)
-        if self.options.cover_art == "file":
-            self.coverArtPath = None  # NOTE: avoid image embedding (hacky)
+            else:
+                self.coverArtPath = self.program.getCoverArt(
+                    dirname, self.program.metadata)
+                if (self.coverArtPath is not None and
+                        self.options.cover_art in {"embed", "complete"}):
+                    self.embedCoverArtPath = self.coverArtPath
 
         # FIXME: turn this into a method
         def _ripIfNotRipped(number):
@@ -480,7 +487,8 @@ Log files will log the path to tracks relative to this directory.
                                                   number,
                                                   len(self.itable.tracks),
                                                   extra),
-                                              coverArtPath=self.coverArtPath)
+                                              coverArtPath=(
+                                                  self.embedCoverArtPath))
                         break
                     # FIXME: catching too general exception (Exception)
                     except Exception as e:
