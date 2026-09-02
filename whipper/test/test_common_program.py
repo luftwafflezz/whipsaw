@@ -4,6 +4,7 @@
 
 import os
 import shutil
+import tempfile
 import unittest
 
 from tempfile import NamedTemporaryFile
@@ -88,7 +89,8 @@ class CoverArtTestCase(unittest.TestCase):
         """Test whether a fetched cover art is saved properly."""
         # Using: Dummy by Portishead
         # https://musicbrainz.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd
-        path = os.path.dirname(__file__)
+        path = tempfile.mkdtemp(prefix='whipper.test.coverart.')
+        self.addCleanup(shutil.rmtree, path, ignore_errors=True)
         release_id = "76df3287-6cda-33eb-8e9a-044b5e15ffdd"
         coverArtPath = self._mock_getCoverArt(path, release_id)
         self.assertTrue(os.path.isfile(coverArtPath))
