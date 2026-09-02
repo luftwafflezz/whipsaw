@@ -31,6 +31,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# Only providers that need no API key/token are on by default; keyed
+# providers (fanart.tv, Discogs, Last.fm) stay out of the default chain
+# until the user opts in by configuring credentials for them.
+DEFAULT_ART_PROVIDER_CHAIN = ['caa_release', 'caa_release_group', 'itunes']
+DEFAULT_ART_MAX_DIMENSION = 1200
+DEFAULT_ART_FORMAT = 'jpeg'
+
+
 class Config:
 
     def __init__(self, path=None):
@@ -82,6 +90,32 @@ class Config:
                            'or missing scheme')
         scheme, netloc, _, _, _, _ = urlparse(conf)
         return {'scheme': scheme, 'netloc': netloc}
+
+    # cover art section
+
+    def get_art_provider_chain(self):
+        """Ordered list of enabled cover art provider names."""
+        raw = self.get('cover_art', 'chain')
+        if raw:
+            names = [n.strip() for n in raw.split(',') if n.strip()]
+        else:
+            names = list(DEFAULT_ART_PROVIDER_CHAIN)
+        return [n for n in names
+                if self.getboolean('art:%s' % n, 'enabled') is not False]
+
+    def get_cover_art_max_dimension(self):
+        raw = self.get('cover_art', 'max_dimension')
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return DEFAULT_ART_MAX_DIMENSION
+
+    def get_cover_art_format(self):
+        return self.get('cover_art', 'format') or DEFAULT_ART_FORMAT
+
+    def get_provider_credential(self, section, key):
+        """e.g. get_provider_credential('art:fanarttv', 'api_key')."""
+        return self.get(section, key)
 
     # drive sections
 

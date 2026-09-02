@@ -33,7 +33,7 @@ dynamic = ["version"]
 Home = "https://github.com/whipper-team/whipper"
 
 [project.optional-dependencies]
-cover_art = ["pillow"]
+cover_art = ["pillow", "requests"]
 docs = ["docutils"]
 test = ["flake8", "twisted"]
 

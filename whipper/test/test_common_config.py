@@ -92,3 +92,50 @@ class ConfigTestCase(tcommon.TestCase):
         self.assertRaises(KeyError, self._config.get_musicbrainz_server)
 
         self._config._parser.remove_section('musicbrainz')
+
+    def test_get_art_provider_chain_default(self):
+        # an old whipper.conf with none of the new sections should still
+        # get the default provider chain, no migration needed
+        self.assertEqual(
+            self._config.get_art_provider_chain(),
+            ['caa_release', 'caa_release_group', 'itunes'])
+
+    def test_get_art_provider_chain_custom_order(self):
+        self._config._parser.add_section('cover_art')
+        self._config._parser.set('cover_art', 'chain', 'itunes, caa_release')
+        self._config.write()
+
+        self.assertEqual(self._config.get_art_provider_chain(),
+                         ['itunes', 'caa_release'])
+
+    def test_get_art_provider_chain_respects_disabled(self):
+        self._config._parser.add_section('art:itunes')
+        self._config._parser.set('art:itunes', 'enabled', 'false')
+        self._config.write()
+
+        chain = self._config.get_art_provider_chain()
+        self.assertNotIn('itunes', chain)
+        self.assertIn('caa_release', chain)
+
+    def test_get_cover_art_max_dimension_default(self):
+        self.assertEqual(self._config.get_cover_art_max_dimension(), 1200)
+
+    def test_get_cover_art_max_dimension_custom(self):
+        self._config._parser.add_section('cover_art')
+        self._config._parser.set('cover_art', 'max_dimension', '500')
+        self._config.write()
+
+        self.assertEqual(self._config.get_cover_art_max_dimension(), 500)
+
+    def test_get_provider_credential_absent(self):
+        self.assertIsNone(
+            self._config.get_provider_credential('art:fanarttv', 'api_key'))
+
+    def test_get_provider_credential_present(self):
+        self._config._parser.add_section('art:fanarttv')
+        self._config._parser.set('art:fanarttv', 'api_key', 'deadbeef')
+        self._config.write()
+
+        self.assertEqual(
+            self._config.get_provider_credential('art:fanarttv', 'api_key'),
+            'deadbeef')
