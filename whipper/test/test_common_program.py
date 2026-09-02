@@ -6,12 +6,14 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import musicbrainzngs
 
 from whipper.common import program, mbngs, config
 from whipper.command.cd import DEFAULT_DISC_TEMPLATE
+from whipper.image import table
+from whipper.result import result
 
 
 class PathTestCase(unittest.TestCase):
@@ -101,3 +103,91 @@ class GetCoverArtTestCase(unittest.TestCase):
 
         self.assertIsNone(cover_art_path)
         self.assertEqual(os.listdir(self.path), [])
+
+
+class RipTrackTestCase(unittest.TestCase):
+    """
+    Exercises the AccurateRip-checksum plumbing in Program.ripTrack() --
+    computing arTrackNumber/arTotalTracks and copying t.arv1/t.arv2 onto
+    trackResult -- by mocking cdparanoia.ReadVerifyTrackTask. The real
+    task shells out to cd-paranoia against physical drive hardware and is
+    out of reach for a unit test; this instead verifies the plumbing
+    around it, which is what the AccurateRip format-decoupling fix
+    actually depends on.
+    """
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix='whipper.test.riptrack.')
+        self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+
+        self.prog = program.Program(
+            config.Config('/nonexistent/whipper-test.conf'))
+        self.prog.getRipResult()
+
+        tbl = table.Table()
+        tbl.tracks.append(table.Track(1, audio=True))
+        tbl.tracks.append(table.Track(2, audio=True))
+        tbl.tracks[0].index(1, absolute=0)
+        tbl.tracks[1].index(1, absolute=1000)
+        tbl.leadout = 2000
+        self.prog.result.table = tbl
+
+    @staticmethod
+    def _mock_task(path, arv1='deadbeef', arv2='cafef00d'):
+        t = MagicMock()
+        t.testspeed = 1.0
+        t.testduration = 1.0
+        t.copyspeed = 1.0
+        t.copyduration = 1.0
+        t.testchecksum = 'aaaaaaaa'
+        t.copychecksum = 'aaaaaaaa'
+        t.peak = 0.5
+        t.quality = 1.0
+        t.arv1 = arv1
+        t.arv2 = arv2
+        t.path = path
+        return t
+
+    def _track_result(self, number, filename):
+        trackResult = result.TrackResult()
+        trackResult.number = number
+        trackResult.filename = filename
+        trackResult.testduration = 0.0
+        trackResult.copyduration = 0.0
+        return trackResult
+
+    @patch('whipper.program.cdparanoia.ReadVerifyTrackTask')
+    def testNormalTrackPassesItsOwnNumberAndDiscTotal(self, mock_cls):
+        filename = os.path.join(self.tmpdir, 'track02.flac')
+        trackResult = self._track_result(2, filename)
+        mock_cls.return_value = self._mock_task(filename)
+
+        self.prog.ripTrack(MagicMock(), trackResult, offset=0, device=None,
+                           taglist={}, overread=False)
+
+        _, kwargs = mock_cls.call_args
+        self.assertEqual(kwargs['arTrackNumber'], 2)
+        self.assertEqual(kwargs['arTotalTracks'], 2)
+        self.assertEqual(kwargs['formatName'], 'flac')
+        self.assertEqual(trackResult.arv1, 'deadbeef')
+        self.assertEqual(trackResult.arv2, 'cafef00d')
+
+    @patch('whipper.program.cdparanoia.ReadVerifyTrackTask')
+    def testHtoaSkipsAccurateRip(self, mock_cls):
+        # HTOA needs getHTOA() to succeed, which reads track 1's index 0
+        # (the pregap) -- give it one.
+        self.prog.result.table.tracks[0].index(0, absolute=0)
+
+        filename = os.path.join(self.tmpdir, 'track00.flac')
+        trackResult = self._track_result(0, filename)
+        mock_cls.return_value = self._mock_task(filename, arv1=None,
+                                                arv2=None)
+
+        self.prog.ripTrack(MagicMock(), trackResult, offset=0, device=None,
+                           taglist={}, overread=False)
+
+        _, kwargs = mock_cls.call_args
+        self.assertIsNone(kwargs['arTrackNumber'])
+        self.assertEqual(kwargs['arTotalTracks'], 2)
+        self.assertIsNone(trackResult.arv1)
+        self.assertIsNone(trackResult.arv2)

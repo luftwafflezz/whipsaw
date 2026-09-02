@@ -36,8 +36,15 @@ class TrackResult:
     # 4 byte CRCs for the test and copy reads
     testcrc = None
     copycrc = None
+    # AccurateRip v1/v2 checksums (hex strings), computed once during
+    # ripping from the pre-encode WAV -- format-independent, so
+    # AccurateRip verification doesn't need to re-decode whatever
+    # container the track was eventually encoded to. None for HTOA
+    # (excluded from AccurateRip) or if computation failed.
+    arv1 = None
+    arv2 = None
     AR = None
-    classVersion = 3
+    classVersion = 4
     skipped = False
 
     def __init__(self):

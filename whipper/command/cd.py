@@ -28,7 +28,7 @@ from whipper.common import (
     accurip, config, drive, program, task
 )
 from whipper.common.common import validate_template
-from whipper.program import cdrdao, cdparanoia, utils
+from whipper.program import cdrdao, cdparanoia, ffmpeg, utils
 from whipper.result import result
 
 logger = logging.getLogger(__name__)
@@ -308,9 +308,10 @@ Log files will log the path to tracks relative to this directory.
         self.parser.add_argument('-C', '--cover-art',
                                  action="store", dest="cover_art",
                                  help="fetch cover art and save it as "
-                                 "standalone file, embed into FLAC files "
-                                 "or perform both actions: file, embed, "
-                                 "complete option values respectively",
+                                 "standalone file, embed into the ripped "
+                                 "tracks, or perform both actions: file, "
+                                 "embed, complete option values "
+                                 "respectively",
                                  choices=['file', 'embed', 'complete'],
                                  default=None)
         self.parser.add_argument('-r', '--max-retries',
@@ -423,11 +424,14 @@ Log files will log the path to tracks relative to this directory.
                 logger.debug('ripIfNotRipped have trackresult, path %r',
                              trackResult.filename)
 
+            format_name = self.config.get_encoding_format()
+            extension = ffmpeg.CODEC_PROFILES[format_name]['ext']
             path = self.program.getPath(self.program.outdir,
                                         self.options.track_template,
                                         self.mbdiscid,
                                         self.program.metadata,
-                                        track_number=number) + '.flac'
+                                        track_number=number) + \
+                '.' + extension
             logger.debug('ripIfNotRipped: path %r', path)
             trackResult.number = number
 

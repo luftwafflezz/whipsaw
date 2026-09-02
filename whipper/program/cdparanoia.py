@@ -435,12 +435,16 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
     copyspeed = None
     testduration = None
     copyduration = None
+    arv1 = None
+    arv2 = None
 
     _tmpwavpath = None
     _tmppath = None
 
     def __init__(self, path, table, start, stop, overread, offset=0,
-                 device=None, taglist=None, what="track", coverArtPath=None):
+                 device=None, taglist=None, what="track", coverArtPath=None,
+                 formatName='flac', config=None,
+                 arTrackNumber=None, arTotalTracks=None):
         """
         Init ReadVerifyTrackTask.
 
@@ -458,6 +462,19 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
         :type device: str
         :param taglist: a dict of tags
         :type taglist: dict
+        :param formatName: output format, a whipper.program.ffmpeg
+                           CODEC_PROFILES key
+        :type formatName: str
+        :param config: consulted for encoder quality/bitrate settings
+        :type config: whipper.common.config.Config or None
+        :param arTrackNumber: this track's 1-based position among the
+                              disc's non-HTOA tracks, for AccurateRip
+                              checksumming; None to skip (e.g. for HTOA,
+                              which AccurateRip doesn't track)
+        :type arTrackNumber: int or None
+        :param arTotalTracks: the disc's non-HTOA track count, for
+                              AccurateRip checksumming
+        :type arTotalTracks: int or None
         """
         task.MultiSeparateTask.__init__(self)
 
@@ -470,6 +487,8 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
         os.fchmod(fd, 0o644)
         os.close(fd)
         self._tmpwavpath = tmppath
+        self._ar_track_number = arTrackNumber
+        self._ar_total_tracks = arTotalTracks
 
         from whipper.common import checksum
 
@@ -506,25 +525,23 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
 
         from whipper.common import encode
 
-        self._encode_task = encode.FlacEncodeTask(tmppath, tmpoutpath)
+        self._encode_task = encode.EncodeTask(
+            tmppath, tmpoutpath, formatName, config=config, what=what)
         self.tasks.append(self._encode_task)
 
-        # MerlijnWajer: XXX: We run the CRC32Task on the wav file, because it's
-        # in general stupid to run the CRC32 on the flac file since it already
-        # has --verify. We should just get rid of this CRC32 step.
-        # make sure our encoding is accurate
-        self._post_encode_checksum_task = checksum.CRC32Task(tmppath)
-        self.tasks.append(self._post_encode_checksum_task)
+        self._encode_verify_task = encode.EncodeVerifyTask(
+            tmppath, tmpoutpath, formatName)
+        self.tasks.append(self._encode_verify_task)
 
         self._peak_task = encode.SoxPeakTask(tmppath)
         self.tasks.append(self._peak_task)
 
         # TODO: Move tagging and embed picture outside of cdparanoia
-        self._tag_task = encode.TaggingTask(tmpoutpath, taglist)
+        self._tag_task = encode.TaggingTask(tmpoutpath, taglist, formatName)
         self.tasks.append(self._tag_task)
 
         self._embed_picture_task = encode.EmbedPictureTask(
-            tmpoutpath, coverArtPath)
+            tmpoutpath, coverArtPath, formatName)
         self.tasks.append(self._embed_picture_task)
 
         self.checksum = None
@@ -555,9 +572,18 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
                     self.exception = ChecksumException(
                         'read and verify failed: test checksum')
 
-                if self._post_encode_checksum_task.checksum != self.checksum:
-                    self.exception = ChecksumException(
-                        'Encoding failed, checksum does not match')
+                # self._encode_verify_task already raised (propagating up
+                # to self.exception via BaseMultiTask.stopped(), before we
+                # even got here) if the encode didn't verify -- see its
+                # docstring for what "verify" means per format.
+
+                if not self.exception and self._ar_track_number is not None:
+                    from whipper.program import arc
+                    v1, v2 = arc.accuraterip_checksum(
+                        self._tmpwavpath, self._ar_track_number,
+                        self._ar_total_tracks)
+                    self.arv1 = '%08x' % v1 if v1 is not None else None
+                    self.arv2 = '%08x' % v2 if v2 is not None else None
 
                 # delete the unencoded file
                 os.unlink(self._tmpwavpath)

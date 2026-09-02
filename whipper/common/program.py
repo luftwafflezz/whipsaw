@@ -623,15 +623,22 @@ class Program:
         """
         if trackResult.number == 0:
             start, stop = self.getHTOA()
+            # HTOA checksums aren't in the AccurateRip database and are
+            # never calculated (see whipper.common.accurip)
+            arTrackNumber = None
         else:
             start = self.result.table.getTrackStart(trackResult.number)
             stop = self.result.table.getTrackEnd(trackResult.number)
+            arTrackNumber = trackResult.number
+        arTotalTracks = len(self.result.table.tracks)
 
         dirname = os.path.dirname(trackResult.filename)
         os.makedirs(dirname, exist_ok=True)
 
         if not what:
             what = 'track %d' % (trackResult.number, )
+
+        formatName = self._config.get_encoding_format()
 
         t = cdparanoia.ReadVerifyTrackTask(trackResult.filename,
                                            self.result.table, start,
@@ -640,7 +647,11 @@ class Program:
                                            device=device,
                                            taglist=taglist,
                                            what=what,
-                                           coverArtPath=coverArtPath)
+                                           coverArtPath=coverArtPath,
+                                           formatName=formatName,
+                                           config=self._config,
+                                           arTrackNumber=arTrackNumber,
+                                           arTotalTracks=arTotalTracks)
 
         runner.run(t)
 
@@ -655,6 +666,8 @@ class Program:
         trackResult.quality = t.quality
         trackResult.testspeed = t.testspeed
         trackResult.copyspeed = t.copyspeed
+        trackResult.arv1 = t.arv1
+        trackResult.arv2 = t.arv2
         # we want rerips to add cumulatively to the time
         trackResult.testduration += t.testduration
         trackResult.copyduration += t.copyduration
@@ -690,10 +703,29 @@ class Program:
         responses = accurip.get_db_entry(table.accuraterip_path())
         logger.info('%d AccurateRip response(s) found', len(responses))
 
-        checksums = accurip.calculate_checksums([
-            os.path.join(os.path.dirname(self.cuePath), t.indexes[1].path)
-            for t in [t for t in cueImage.cue.table.tracks if t.number != 0]
-        ])
+        resultTracks = [t for t in self.result.tracks if t.number != 0]
+        if resultTracks and all(t.arv1 is not None for t in resultTracks):
+            # fast path: every track already has an AccurateRip checksum
+            # cached from ripping (computed from the pre-encode WAV, see
+            # ReadVerifyTrackTask) -- format-independent, no re-decode of
+            # the final output needed at all.
+            checksums = {
+                'v1': [t.arv1 for t in resultTracks],
+                'v2': [t.arv2 for t in resultTracks],
+            }
+        else:
+            # fallback: verifying an existing image with nothing cached
+            # in this process (e.g. the standalone `whipper image verify`
+            # command, which builds fresh TrackResults straight from a
+            # .cue file) -- decode whatever's on disk. Only meaningful for
+            # formats the accuraterip extension's libsndfile backend can
+            # read directly (WAV/FLAC), same constraint this path has
+            # always had.
+            checksums = accurip.calculate_checksums([
+                os.path.join(os.path.dirname(self.cuePath), t.indexes[1].path)
+                for t in [t for t in cueImage.cue.table.tracks
+                          if t.number != 0]
+            ])
         if not (checksums and any(checksums['v1']) and any(checksums['v2'])):
             return False
 
