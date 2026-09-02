@@ -2,26 +2,23 @@
 # vi:si:et:sw=4:sts=4:ts=4
 
 """
-Baseline regression tests for whipper.common.encode.
-
-These characterize today's FLAC-only encode/tag/embed behaviour (real
-`flac`/`sox` subprocess calls, real mutagen reads/writes) so later work
-generalizing this module to other containers/encoders has something to
-diff against.
+Tests for whipper.common.encode: the real `flac`/ffmpeg/`sox` subprocess
+calls and real mutagen reads/writes, per output format.
 """
 
 import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 import wave
 from unittest.mock import patch
 
 from mutagen.flac import FLAC
-from PIL import Image
 
 from whipper.common import encode
 from whipper.extern.task import task
+from whipper.program import ffmpeg
 
 
 FIXTURES_DIR = os.path.dirname(__file__)
@@ -44,7 +41,7 @@ def runTask(t):
     return t
 
 
-class FlacEncodeTaskTestCase(unittest.TestCase):
+class EncodeTaskTestCase(unittest.TestCase):
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix='whipper.test.encode.')
@@ -54,21 +51,85 @@ class FlacEncodeTaskTestCase(unittest.TestCase):
         self.out_path = os.path.join(self.tmpdir, 'track.flac')
 
     def testEncodesToValidFlac(self):
-        t = encode.FlacEncodeTask(self.wav_path, self.out_path)
+        t = encode.EncodeTask(self.wav_path, self.out_path, 'flac')
         runTask(t)
 
         self.assertTrue(os.path.isfile(self.out_path))
         f = FLAC(self.out_path)
         self.assertEqual(f.info.channels, 2)
         self.assertEqual(f.info.sample_rate, 44100)
-        # flac --verify decodes and compares while encoding; a corrupt
-        # encode would have raised via check_call already, but confirm
-        # the output is independently re-decodable too.
         self.assertEqual(f.info.length, 0.1)
 
-    def testDescriptionMentionsWhat(self):
-        t = encode.FlacEncodeTask(self.wav_path, self.out_path, what="foo")
+    def testDescriptionMentionsWhatAndFormat(self):
+        t = encode.EncodeTask(self.wav_path, self.out_path, 'flac',
+                              what="foo")
         self.assertIn('foo', t.description)
+        self.assertIn('FLAC', t.description)
+
+    def testEachSupportedFormatEncodesSuccessfully(self):
+        for format_name, profile in ffmpeg.CODEC_PROFILES.items():
+            out_path = os.path.join(
+                self.tmpdir, 'out_%s.%s' % (format_name, profile['ext']))
+            t = encode.EncodeTask(self.wav_path, out_path, format_name)
+            runTask(t)
+            self.assertTrue(os.path.isfile(out_path),
+                            '%s did not produce output' % format_name)
+            self.assertGreater(os.path.getsize(out_path), 0)
+
+
+class EncodeVerifyTaskTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp(prefix='whipper.test.encode.')
+        self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+        self.wav_path = os.path.join(self.tmpdir, 'track.wav')
+        subprocess.check_call(['flac', '-d', '--silent', '-o',
+                               self.wav_path,
+                               os.path.join(FIXTURES_DIR, 'track.flac')])
+
+    def _encode(self, format_name):
+        profile = ffmpeg.CODEC_PROFILES[format_name]
+        out_path = os.path.join(self.tmpdir, 'out.%s' % profile['ext'])
+        ffmpeg.encode(self.wav_path, out_path, format_name)
+        return out_path
+
+    def testLosslessFormatsVerifySuccessfully(self):
+        for format_name in ('flac', 'wav', 'alac'):
+            out_path = self._encode(format_name)
+            t = encode.EncodeVerifyTask(self.wav_path, out_path,
+                                        format_name)
+            runTask(t)
+            self.assertIsNotNone(t.checksum)
+
+    def testLossyFormatsVerifySuccessfully(self):
+        for format_name in ('mp3', 'opus', 'vorbis', 'aac'):
+            out_path = self._encode(format_name)
+            t = encode.EncodeVerifyTask(self.wav_path, out_path,
+                                        format_name)
+            runTask(t)  # should not raise
+
+    def testLosslessMismatchRaises(self):
+        out_path = self._encode('flac')
+        # corrupt the source comparison by pointing at a different WAV
+        other_wav = os.path.join(self.tmpdir, 'other.wav')
+        _make_silent_wav(other_wav)
+
+        t = encode.EncodeVerifyTask(other_wav, out_path, 'flac')
+        with self.assertRaises(task.TaskException) as cm:
+            runTask(t)
+        self.assertIsInstance(cm.exception.exception,
+                              encode.EncodeVerificationError)
+
+    def testDecodeFailureRaises(self):
+        bogus_path = os.path.join(self.tmpdir, 'not_really_audio.flac')
+        with open(bogus_path, 'wb') as f:
+            f.write(b'this is not a flac file')
+
+        t = encode.EncodeVerifyTask(self.wav_path, bogus_path, 'flac')
+        with self.assertRaises(task.TaskException) as cm:
+            runTask(t)
+        self.assertIsInstance(cm.exception.exception,
+                              encode.EncodeVerificationError)
 
 
 class SoxPeakTaskTestCase(unittest.TestCase):
@@ -94,8 +155,8 @@ class TaggingTaskTestCase(unittest.TestCase):
         shutil.copy(os.path.join(FIXTURES_DIR, 'track.flac'), self.track_path)
 
     def testTagsAreWrittenAndPersisted(self):
-        tags = {'ARTIST': 'Some Artist', 'TITLE': 'Some Title'}
-        t = encode.TaggingTask(self.track_path, tags)
+        track_tags = {'ARTIST': 'Some Artist', 'TITLE': 'Some Title'}
+        t = encode.TaggingTask(self.track_path, track_tags, 'flac')
         runTask(t)
 
         # re-open with a fresh mutagen object to make sure the tags were
@@ -105,43 +166,27 @@ class TaggingTaskTestCase(unittest.TestCase):
         self.assertEqual(reopened['TITLE'], ['Some Title'])
 
 
-class MakeFlacPictureTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='whipper.test.encode.')
-        self.addCleanup(shutil.rmtree, self.tmpdir, ignore_errors=True)
+class PreparePictureTestCase(unittest.TestCase):
+    """
+    _prepare_picture() no longer rejects unsupported formats/modes the way
+    the old FLAC-only _make_flac_picture() did -- that validation now
+    happens once, upstream, in Program.getCoverArt()'s normalize() step,
+    which guarantees every cover_art_path this ever receives is already a
+    clean JPEG or PNG. This just needs to read it back correctly.
+    """
 
     def testNoneWhenNoPath(self):
-        self.assertIsNone(encode.EmbedPictureTask._make_flac_picture(None))
+        self.assertIsNone(encode.EmbedPictureTask._prepare_picture(None))
 
     def testJpegCoverIsReturned(self):
         cover_path = os.path.join(
             FIXTURES_DIR, '76df3287-6cda-33eb-8e9a-044b5e15ffdd.jpg')
-        pic = encode.EmbedPictureTask._make_flac_picture(cover_path)
+        pic = encode.EmbedPictureTask._prepare_picture(cover_path)
         self.assertIsNotNone(pic)
-        self.assertEqual(pic.mime, 'image/jpeg')
+        self.assertEqual(pic.mime_type, 'image/jpeg')
         self.assertEqual((pic.width, pic.height), (494, 500))
         with open(cover_path, 'rb') as f:
             self.assertEqual(pic.data, f.read())
-
-    def testUnsupportedFormatReturnsNone(self):
-        # GIF is a real, PIL-openable format that _make_flac_picture does
-        # not accept -- exercises the "format" rejection branch.
-        gif_path = os.path.join(self.tmpdir, 'cover.gif')
-        Image.new('RGB', (4, 4)).save(gif_path, format='GIF')
-
-        pic = encode.EmbedPictureTask._make_flac_picture(gif_path)
-        self.assertIsNone(pic)
-
-    def testUnsupportedModeReturnsNone(self):
-        # CMYK JPEGs decode to PIL mode 'CMYK', which isn't in the
-        # accepted (P, RGB, SRGB) set -- exercises the "mode" rejection
-        # branch, independently of the format check above.
-        cmyk_path = os.path.join(self.tmpdir, 'cover_cmyk.jpg')
-        Image.new('CMYK', (4, 4)).save(cmyk_path, format='JPEG')
-
-        pic = encode.EmbedPictureTask._make_flac_picture(cmyk_path)
-        self.assertIsNone(pic)
 
 
 class EmbedPictureTaskTestCase(unittest.TestCase):
@@ -163,7 +208,7 @@ class EmbedPictureTaskTestCase(unittest.TestCase):
         Reopening with a fresh mutagen object is what actually catches
         that class of bug -- checking the in-memory object would not.
         """
-        t = encode.EmbedPictureTask(self.track_path, self.cover_path)
+        t = encode.EmbedPictureTask(self.track_path, self.cover_path, 'flac')
         runTask(t)
 
         reopened = FLAC(self.track_path)
@@ -174,7 +219,7 @@ class EmbedPictureTaskTestCase(unittest.TestCase):
             self.assertEqual(pic.data, f.read())
 
     def testNoCoverArtPathLeavesFileUntouched(self):
-        t = encode.EmbedPictureTask(self.track_path, None)
+        t = encode.EmbedPictureTask(self.track_path, None, 'flac')
         runTask(t)
 
         reopened = FLAC(self.track_path)
@@ -188,7 +233,8 @@ class EmbedPictureTaskTestCase(unittest.TestCase):
         proceed as if embedding had succeeded.
         """
         with patch('mutagen.flac.FLAC.save', return_value=None):
-            t = encode.EmbedPictureTask(self.track_path, self.cover_path)
+            t = encode.EmbedPictureTask(self.track_path, self.cover_path,
+                                        'flac')
             runner = task.SyncRunner(verbose=False)
             with self.assertRaises(task.TaskException) as cm:
                 runner.run(t)
