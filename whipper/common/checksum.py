@@ -21,16 +21,23 @@
 import binascii
 import wave
 import tempfile
-import subprocess
 import os
 
 
 from whipper.extern.task import task as etask
+from whipper.program import ffmpeg
 
 import logging
 logger = logging.getLogger(__name__)
 
 # checksums are not CRC's. a CRC is a specific type of checksum.
+
+
+def crc32_of_wav(path):
+    """Return the CRC32 of a WAV file's raw PCM data chunk."""
+    w = wave.open(path)
+    d = w._data_chunk.read()
+    return binascii.crc32(d) & 0xffffffff
 
 
 class CRC32Task(etask.Task):
@@ -47,18 +54,15 @@ class CRC32Task(etask.Task):
 
     def _crc32(self):
         if not self.is_wave:
-            _, tmpf = tempfile.mkstemp()
+            fd, tmpf = tempfile.mkstemp()
+            os.close(fd)
 
             try:
-                subprocess.check_call(['flac', '-d', self.path, '-fo', tmpf])
-
-                w = wave.open(tmpf)
+                ffmpeg.decode_to_wav(self.path, tmpf)
+                self.checksum = crc32_of_wav(tmpf)
             finally:
                 os.remove(tmpf)
         else:
-            w = wave.open(self.path)
+            self.checksum = crc32_of_wav(self.path)
 
-        d = w._data_chunk.read()
-
-        self.checksum = binascii.crc32(d) & 0xffffffff
         self.stop()
