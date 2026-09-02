@@ -132,6 +132,8 @@ class _CD(BaseCommand):
                                         country=self.options.country,
                                         prompt=self.options.prompt)
         )
+        if self.program.metadata:
+            self.program.result.metadataSource = 'musicbrainz'
 
         if not self.program.metadata:
             # fall back to FreeDB for lookup
@@ -141,6 +143,7 @@ class _CD(BaseCommand):
                 logger.info('FreeDB identifies disc as %s - %s',
                             cddbmd.artist, cddbmd.title)
                 self.program.metadata = cddbmd
+                self.program.result.metadataSource = 'freedb'
 
         if not self.program.metadata:
             # Discogs can't identify a disc blind (no TOC-based lookup),
@@ -152,6 +155,7 @@ class _CD(BaseCommand):
                 logger.info('Discogs identifies disc as %s - %s',
                             discogsmd.artist, discogsmd.title)
                 self.program.metadata = discogsmd
+                self.program.result.metadataSource = 'discogs'
 
         if not self.program.metadata:
             # also used by rip cd info
@@ -199,8 +203,11 @@ class _CD(BaseCommand):
         # fast TOC read earlier doesn't carry it) -- apply it as a last
         # resort, filling in only whatever MusicBrainz/FreeDB/Discogs
         # left missing, never overwriting an already-resolved value.
+        had_metadata = self.program.metadata is not None
         self.program.metadata = apply_cdtext_fallback(
             self.program.metadata, self.itable)
+        if not had_metadata and self.program.metadata is not None:
+            self.program.result.metadataSource = 'cdtext'
 
         if self.program.metadata:
             self.program.metadata.discid = self.ittoc.getMusicBrainzDiscId()
@@ -454,6 +461,7 @@ Log files will log the path to tracks relative to this directory.
                              trackResult.filename)
 
             format_name = self.config.get_encoding_format()
+            self.program.result.outputFormat = format_name
             extension = ffmpeg.CODEC_PROFILES[format_name]['ext']
             path = self.program.getPath(self.program.outdir,
                                         self.options.track_template,

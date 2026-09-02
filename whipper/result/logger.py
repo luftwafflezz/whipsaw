@@ -51,6 +51,7 @@ class WhipperLogger(result.Logger):
         data["Gap detection"] = "cdrdao %s" % ripResult.cdrdaoVersion
 
         data["CD-R detected"] = ripResult.isCdr
+        data["Output format"] = ripResult.outputFormat
         riplog["Ripping phase information"] = data
 
         # CD metadata
@@ -65,6 +66,8 @@ class WhipperLogger(result.Logger):
             ripResult.table.getMusicBrainzSubmitURL())
         if ripResult.metadata:
             data["MusicBrainz Release URL"] = ripResult.metadata.url
+        data["Metadata source"] = ripResult.metadataSource
+        data["Cover art source"] = ripResult.coverArtSource
         riplog["CD metadata"] = data
 
         # TOC section

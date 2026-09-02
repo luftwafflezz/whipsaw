@@ -604,6 +604,8 @@ class Program:
 
         logger.debug('cover art fetched from %s at: %r',
                      provider_name, cover_art_path)
+        if self.result:
+            self.result.coverArtSource = provider_name
         return cover_art_path
 
     @staticmethod

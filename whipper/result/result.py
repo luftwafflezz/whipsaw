@@ -99,6 +99,14 @@ class RipResult:
     artist = None
     title = None
     metadata = None
+    # which source actually resolved disc metadata -- 'musicbrainz',
+    # 'freedb', 'discogs', or 'cdtext'; None if nothing did (--unknown)
+    metadataSource = None
+    # which provider actually supplied the cover art -- e.g.
+    # 'caa_release', 'itunes', 'fanarttv'; None if none did/none fetched
+    coverArtSource = None
+    # the whipper.program.ffmpeg.CODEC_PROFILES key tracks were encoded to
+    outputFormat = None
 
     vendor = None
     model = None
@@ -108,7 +116,7 @@ class RipResult:
     cdparanoiaVersion = None
     cdparanoiaDefeatsCache = None
 
-    classVersion = 3
+    classVersion = 4
 
     def __init__(self):
         self.tracks = []
