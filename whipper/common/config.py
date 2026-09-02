@@ -31,10 +31,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# Only providers that need no API key/token are on by default; keyed
-# providers (fanart.tv, Discogs, Last.fm) stay out of the default chain
-# until the user opts in by configuring credentials for them.
-DEFAULT_ART_PROVIDER_CHAIN = ['caa_release', 'caa_release_group', 'itunes']
+# Keyed providers (fanart.tv, Discogs, Last.fm) are listed in the default
+# chain too, but each individually defaults to disabled (via its own
+# Provider.enabled override) until the user configures credentials for
+# it -- so their presence here is inert out of the box.
+DEFAULT_ART_PROVIDER_CHAIN = [
+    'caa_release', 'caa_release_group', 'itunes',
+    'fanarttv', 'discogs', 'lastfm',
+]
 DEFAULT_ART_MAX_DIMENSION = 1200
 DEFAULT_ART_FORMAT = 'jpeg'
 

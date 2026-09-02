@@ -95,10 +95,14 @@ class ConfigTestCase(tcommon.TestCase):
 
     def test_get_art_provider_chain_default(self):
         # an old whipper.conf with none of the new sections should still
-        # get the default provider chain, no migration needed
+        # get the default provider chain, no migration needed. The keyed
+        # providers (fanarttv/discogs/lastfm) are listed here too, but
+        # each individually gates itself off via Provider.enabled until
+        # credentials are configured -- see test_common_providers_art.py.
         self.assertEqual(
             self._config.get_art_provider_chain(),
-            ['caa_release', 'caa_release_group', 'itunes'])
+            ['caa_release', 'caa_release_group', 'itunes',
+             'fanarttv', 'discogs', 'lastfm'])
 
     def test_get_art_provider_chain_custom_order(self):
         self._config._parser.add_section('cover_art')

@@ -5,17 +5,21 @@ from whipper.common.providers.base import ProviderChain
 from whipper.common.providers.art.caa import (
     CAAReleaseProvider, CAAReleaseGroupProvider,
 )
+from whipper.common.providers.art.discogs import DiscogsArtProvider
+from whipper.common.providers.art.fanarttv import FanartTvProvider
 from whipper.common.providers.art.itunes import ITunesArtProvider
+from whipper.common.providers.art.lastfm import LastFmArtProvider
 
 import logging
 logger = logging.getLogger(__name__)
 
-# fanart.tv, Discogs and Last.fm join this registry once their provider
-# modules land (they need API keys/tokens, so are off by default anyway).
 PROVIDER_CLASSES = {
     'caa_release': CAAReleaseProvider,
     'caa_release_group': CAAReleaseGroupProvider,
     'itunes': ITunesArtProvider,
+    'fanarttv': FanartTvProvider,
+    'discogs': DiscogsArtProvider,
+    'lastfm': LastFmArtProvider,
 }
 
 

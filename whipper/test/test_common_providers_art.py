@@ -15,18 +15,24 @@ from whipper.common.providers.art.base import ArtResult
 from whipper.common.providers.art.caa import (
     CAAReleaseGroupProvider, CAAReleaseProvider,
 )
+from whipper.common.providers.art.discogs import DiscogsArtProvider
+from whipper.common.providers.art.fanarttv import FanartTvProvider
 from whipper.common.providers.art.itunes import ITunesArtProvider
+from whipper.common.providers.art.lastfm import LastFmArtProvider
 from whipper.common.providers.art.normalize import normalize
 
 FIXTURES_DIR = os.path.dirname(__file__)
 
 
-def _metadata(mbid=None, mbid_release_group=None, artist=None, title=None):
+def _metadata(mbid=None, mbid_release_group=None, artist=None, title=None,
+              barcode=None, catalog_numbers=None):
     md = mbngs.DiscMetadata()
     md.mbid = mbid
     md.mbidReleaseGroup = mbid_release_group
     md.artist = artist
     md.releaseTitle = title
+    md.barcode = barcode
+    md.catalogNumbers = catalog_numbers or []
     return md
 
 
@@ -162,6 +168,155 @@ class NormalizeTestCase(unittest.TestCase):
     def testUndecodableDataReturnsNone(self):
         art = ArtResult(b'not an image', 'image/jpeg', 'test')
         self.assertIsNone(normalize(art, max_dimension=1200))
+
+
+class FanartTvProviderTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.config = config.Config('/nonexistent/whipper-test.conf')
+        self.provider = FanartTvProvider(self.config)
+
+    def testDisabledWithoutApiKey(self):
+        self.assertFalse(self.provider.enabled)
+
+    def testEnabledWithApiKey(self):
+        self.config._parser.add_section('art:fanarttv')
+        self.config._parser.set('art:fanarttv', 'api_key', 'deadbeef')
+        self.assertTrue(self.provider.enabled)
+
+    def testExplicitlyDisabledOverridesApiKeyPresence(self):
+        self.config._parser.add_section('art:fanarttv')
+        self.config._parser.set('art:fanarttv', 'api_key', 'deadbeef')
+        self.config._parser.set('art:fanarttv', 'enabled', 'false')
+        self.assertFalse(self.provider.enabled)
+
+    def testNoReleaseGroupIdReturnsNone(self):
+        self.assertIsNone(self.provider.fetch(_metadata()))
+
+    @patch('whipper.common.http.get_session')
+    def testReturnsArtResultOnSuccess(self, mock_get_session):
+        api_resp = MagicMock(status_code=200)
+        api_resp.json.return_value = {
+            'albums': {'rg-1': {
+                'albumcover': [{'url': 'https://x/cover.jpg'}]}}
+        }
+        img_resp = MagicMock(status_code=200, content=b'imgbytes')
+        img_resp.headers = {'Content-Type': 'image/jpeg'}
+        session = MagicMock()
+        session.get.side_effect = [api_resp, img_resp]
+        mock_get_session.return_value = session
+
+        with patch('whipper.common.providers.art.fanarttv.'
+                   '_RATE_LIMITER.wait'):
+            result = self.provider.fetch(_metadata(mbid_release_group='rg-1'))
+
+        self.assertEqual(result.data, b'imgbytes')
+        self.assertEqual(result.source, 'fanarttv')
+
+
+class DiscogsArtProviderTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.config = config.Config('/nonexistent/whipper-test.conf')
+        self.provider = DiscogsArtProvider(self.config)
+
+    def testDisabledWithoutToken(self):
+        self.assertFalse(self.provider.enabled)
+
+    def testEnabledWithToken(self):
+        self.config._parser.add_section('art:discogs')
+        self.config._parser.set('art:discogs', 'token', 'deadbeef')
+        self.assertTrue(self.provider.enabled)
+
+    def testNoBarcodeOrCatalogNumberReturnsNone(self):
+        self.assertIsNone(self.provider.fetch(_metadata()))
+
+    @patch('whipper.common.http.get_session')
+    def testSearchesByBarcodeWhenAvailable(self, mock_get_session):
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {
+            'results': [{'cover_image': 'https://x/cover.jpg'}]
+        }
+        img_resp = MagicMock(status_code=200, content=b'imgbytes')
+        img_resp.headers = {'Content-Type': 'image/jpeg'}
+        session = MagicMock()
+        session.get.side_effect = [search_resp, img_resp]
+        mock_get_session.return_value = session
+
+        with patch('whipper.common.providers.art.discogs.'
+                   '_RATE_LIMITER.wait'):
+            result = self.provider.fetch(_metadata(barcode='123456789012'))
+
+        self.assertEqual(result.data, b'imgbytes')
+        params = session.get.call_args_list[0].kwargs['params']
+        self.assertEqual(params['barcode'], '123456789012')
+
+    @patch('whipper.common.http.get_session')
+    def testFallsBackToCatalogNumberWithoutBarcode(self, mock_get_session):
+        search_resp = MagicMock(status_code=200)
+        search_resp.json.return_value = {'results': []}
+        session = MagicMock()
+        session.get.return_value = search_resp
+        mock_get_session.return_value = session
+
+        with patch('whipper.common.providers.art.discogs.'
+                   '_RATE_LIMITER.wait'):
+            self.provider.fetch(_metadata(catalog_numbers=['CAT-1']))
+
+        params = session.get.call_args_list[0].kwargs['params']
+        self.assertEqual(params['catno'], 'CAT-1')
+
+
+class LastFmArtProviderTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.config = config.Config('/nonexistent/whipper-test.conf')
+        self.provider = LastFmArtProvider(self.config)
+
+    def testDisabledByDefaultEvenWithApiKey(self):
+        # Last.fm needs an explicit `enabled = true`, not just a key --
+        # it's the weakest-signal provider and shouldn't surprise anyone.
+        self.config._parser.add_section('art:lastfm')
+        self.config._parser.set('art:lastfm', 'api_key', 'deadbeef')
+        self.assertFalse(self.provider.enabled)
+
+    def testEnabledRequiresBothFlagAndKey(self):
+        self.config._parser.add_section('art:lastfm')
+        self.config._parser.set('art:lastfm', 'enabled', 'true')
+        self.config._parser.set('art:lastfm', 'api_key', 'deadbeef')
+        self.assertTrue(self.provider.enabled)
+
+    def testEnabledFlagAloneWithoutKeyIsNotEnough(self):
+        self.config._parser.add_section('art:lastfm')
+        self.config._parser.set('art:lastfm', 'enabled', 'true')
+        self.assertFalse(self.provider.enabled)
+
+    def testNoArtistOrTitleReturnsNone(self):
+        self.assertIsNone(self.provider.fetch(_metadata()))
+
+    @patch('whipper.common.http.get_session')
+    def testReturnsBestSizeImage(self, mock_get_session):
+        api_resp = MagicMock(status_code=200)
+        api_resp.json.return_value = {
+            'album': {'image': [
+                {'size': 'small', '#text': 'https://x/small.jpg'},
+                {'size': 'mega', '#text': 'https://x/mega.jpg'},
+                {'size': 'large', '#text': ''},
+            ]}
+        }
+        img_resp = MagicMock(status_code=200, content=b'imgbytes')
+        img_resp.headers = {'Content-Type': 'image/jpeg'}
+        session = MagicMock()
+        session.get.side_effect = [api_resp, img_resp]
+        mock_get_session.return_value = session
+
+        with patch('whipper.common.providers.art.lastfm.'
+                   '_RATE_LIMITER.wait'):
+            result = self.provider.fetch(_metadata(artist='A', title='T'))
+
+        self.assertEqual(result.data, b'imgbytes')
+        fetched_url = session.get.call_args_list[1].args[0]
+        self.assertEqual(fetched_url, 'https://x/mega.jpg')
 
 
 class BuildChainTestCase(unittest.TestCase):
