@@ -3,6 +3,7 @@ INSTALL
 py-compile
 REVISION
 *.o
+*.so
 
 # For Python development using Eclipse IDE
 .project
@@ -15,3 +16,6 @@ whipper.egg-info/
 
 # From coverage report
 .coverage
+
+# Local virtualenv
+.venv/

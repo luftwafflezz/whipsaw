@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools_scm needs full history for versioning
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install --no-install-recommends \
+            cd-paranoia cdrdao flac ffmpeg git \
+            libcdio-dev libdiscid-dev libgirepository1.0-dev \
+            libiso9660-dev libsndfile1-dev sox swig gir1.2-glib-2.0
+
+      - name: Install whipper and test dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[cover_art,test]"
+
+      - name: Run unit tests
+        run: python -m unittest discover
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Run flake8
+        run: flake8 --benchmark --statistics whipper/
+
+  man:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install docutils
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install --no-install-recommends python3-docutils
+
+      - name: Build man pages
+        run: cd man && make
