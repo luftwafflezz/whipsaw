@@ -2,6 +2,7 @@ from whipper.image.toc import _CDTEXT_CANDIDATE_RE, parse_toc_string
 
 from whipper.test import common
 
+
 class TestTOCStringParsing(common.TestCase):
     def check_string(self, str_with_quotes: str, str_parsed_expected: str):
         text = f"PERFORMER {str_with_quotes}"

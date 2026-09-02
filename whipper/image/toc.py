@@ -78,9 +78,9 @@ def parse_toc_string(str_within_quotes: str) -> str:
     https://github.com/cdrdao/cdrdao/issues/32
     https://github.com/whipper-team/whipper/issues/169
 
-    This function assumes cdrdao 1.2.5+ (2023) was used, which unless --no-utf8
-    is passed, provides UTF-8 strings. It also works with older versions as long
-    as the encoding was ASCII or Latin-1.
+    This function assumes cdrdao 1.2.5+ (2023) was used, which unless
+    --no-utf8 is passed, provides UTF-8 strings. It also works with older
+    versions as long as the encoding was ASCII or Latin-1.
 
     Note: CD-Text in MS-JIS produced by cdrdao <1.2.5 will produce mojibake
     (garbled characters), just like the older code this function replaced.

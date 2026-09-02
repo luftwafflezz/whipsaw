@@ -26,10 +26,13 @@ class TestAccurateRipResponse(TestCase):
 
     @patch(
         "whipper.common.accurip.urlopen",
-        MagicMock(return_value=open(join(dirname(__file__), 'dBAR-002-0000f21c-00027ef8-05021002.bin'), 'rb')),
+        MagicMock(return_value=open(
+            join(dirname(__file__),
+                 'dBAR-002-0000f21c-00027ef8-05021002.bin'), 'rb')),
     )
     def test_AccurateRipResponse_parses_correctly(self):
-        responses = get_db_entry('c/1/2/dBAR-002-0000f21c-00027ef8-05021002.bin')
+        responses = get_db_entry(
+            'c/1/2/dBAR-002-0000f21c-00027ef8-05021002.bin')
         self.assertEqual(len(responses), 2)
 
         self.assertEqual(responses[0].num_tracks, 2)

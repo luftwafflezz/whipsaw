@@ -22,7 +22,6 @@ import argparse
 import cdio
 import importlib.util
 import os
-import glob
 import logging
 from whipper.command.basecommand import BaseCommand
 from whipper.common import (
@@ -501,9 +500,10 @@ Log files will log the path to tracks relative to this directory.
                                      self.skipped_tracks)
                         trackResult.skipped = True
                     else:
-                        raise RuntimeError("track can't be ripped. "
-                                           "Rip attempts number is equal "
-                                           "to {}".format(self.options.max_retries))
+                        raise RuntimeError(
+                            "track can't be ripped. "
+                            "Rip attempts number is equal "
+                            "to {}".format(self.options.max_retries))
                 if trackResult in self.skipped_tracks:
                     print("Skipping CRC comparison for track %d "
                           "due to rip failure" % number)

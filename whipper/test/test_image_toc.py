@@ -206,8 +206,8 @@ class DioramaTOCMixin:
      - diorama_noutf8.toc (--no-utf8 mode, cdrdao 1.2.5, but representative of
        any older version of cdrdao)
 
-    Regardless of the version chosen for the toc file, all the same tests should
-    pass, including generating the same .cue file as output.
+    Regardless of the version chosen for the toc file, all the same tests
+    should pass, including generating the same .cue file as output.
     """
 
     @property

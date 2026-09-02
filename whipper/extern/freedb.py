@@ -35,9 +35,9 @@ class DiscID:
         The first three items are for generating the hex disc ID itself
         while the last is for performing queries.
         """
-        assert(len(offsets) == track_count)
+        assert len(offsets) == track_count
         for o in offsets:
-            assert(o >= 0)
+            assert o >= 0
 
         self.offsets = offsets
         self.total_length = total_length
@@ -175,9 +175,9 @@ def freedb_command(freedb_server, freedb_port, cmd, *args):
     from whipper import __version__ as VERSION
 
     # some debug type checking
-    assert(isinstance(cmd, str))
+    assert isinstance(cmd, str)
     for arg in args:
-        assert(isinstance(arg, str))
+        assert isinstance(arg, str)
 
     POST = []
 

@@ -6,7 +6,8 @@ import re
 
 class MBLookup(BaseCommand):
     summary = "lookup MusicBrainz entry"
-    description = """Look up either a MusicBrainz Disc ID or Release ID and output information.
+    description = """Look up either a MusicBrainz Disc ID or Release ID and \
+output information.
 
 You can get the MusicBrainz Disc ID with whipper cd info.
 

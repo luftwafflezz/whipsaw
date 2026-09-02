@@ -18,6 +18,7 @@ if 'WHIPPER_DEBUG' in os.environ:
 log_init_func = logging.basicConfig
 if 'WHIPPER_COLOR_LOG' in os.environ:
     import coloredlogs
+
     def init_coloredlogs(**kwargs):
         # coloredlogs comes with its own log format, we don't want to use that
         coloredlogs.install(fmt=logging.BASIC_FORMAT, **kwargs)
