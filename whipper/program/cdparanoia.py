@@ -474,15 +474,22 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
         from whipper.common import checksum
 
         self.tasks = []
-        self.tasks.append(
-            ReadTrackTask(tmppath, table, start, stop, overread,
-                          offset=offset, device=device, what=what))
-        self.tasks.append(checksum.CRC32Task(tmppath))
-        t = ReadTrackTask(tmppath, table, start, stop, overread,
-                          offset=offset, device=device, action="Verifying",
-                          what=what)
-        self.tasks.append(t)
-        self.tasks.append(checksum.CRC32Task(tmppath))
+
+        self._test_read_task = ReadTrackTask(
+            tmppath, table, start, stop, overread,
+            offset=offset, device=device, what=what)
+        self.tasks.append(self._test_read_task)
+
+        self._test_checksum_task = checksum.CRC32Task(tmppath)
+        self.tasks.append(self._test_checksum_task)
+
+        self._verify_read_task = ReadTrackTask(
+            tmppath, table, start, stop, overread,
+            offset=offset, device=device, action="Verifying", what=what)
+        self.tasks.append(self._verify_read_task)
+
+        self._verify_checksum_task = checksum.CRC32Task(tmppath)
+        self.tasks.append(self._verify_checksum_task)
 
         # encode to the final path + '.part'
         try:
@@ -499,18 +506,26 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
 
         from whipper.common import encode
 
-        self.tasks.append(encode.FlacEncodeTask(tmppath, tmpoutpath))
+        self._encode_task = encode.FlacEncodeTask(tmppath, tmpoutpath)
+        self.tasks.append(self._encode_task)
 
         # MerlijnWajer: XXX: We run the CRC32Task on the wav file, because it's
         # in general stupid to run the CRC32 on the flac file since it already
         # has --verify. We should just get rid of this CRC32 step.
         # make sure our encoding is accurate
-        self.tasks.append(checksum.CRC32Task(tmppath))
-        self.tasks.append(encode.SoxPeakTask(tmppath))
+        self._post_encode_checksum_task = checksum.CRC32Task(tmppath)
+        self.tasks.append(self._post_encode_checksum_task)
+
+        self._peak_task = encode.SoxPeakTask(tmppath)
+        self.tasks.append(self._peak_task)
 
         # TODO: Move tagging and embed picture outside of cdparanoia
-        self.tasks.append(encode.TaggingTask(tmpoutpath, taglist))
-        self.tasks.append(encode.EmbedPictureTask(tmpoutpath, coverArtPath))
+        self._tag_task = encode.TaggingTask(tmpoutpath, taglist)
+        self.tasks.append(self._tag_task)
+
+        self._embed_picture_task = encode.EmbedPictureTask(
+            tmpoutpath, coverArtPath)
+        self.tasks.append(self._embed_picture_task)
 
         self.checksum = None
 
@@ -519,17 +534,17 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
         # we chain up should be handled by a parent class function ?
         try:
             if not self.exception:
-                self.quality = max(self.tasks[0].quality,
-                                   self.tasks[2].quality)
-                self.peak = self.tasks[6].peak
+                self.quality = max(self._test_read_task.quality,
+                                   self._verify_read_task.quality)
+                self.peak = self._peak_task.peak
                 logger.debug('peak: %r', self.peak)
-                self.testspeed = self.tasks[0].speed
-                self.copyspeed = self.tasks[2].speed
-                self.testduration = self.tasks[0].duration
-                self.copyduration = self.tasks[2].duration
+                self.testspeed = self._test_read_task.speed
+                self.copyspeed = self._verify_read_task.speed
+                self.testduration = self._test_read_task.duration
+                self.copyduration = self._verify_read_task.duration
 
-                self.testchecksum = c1 = self.tasks[1].checksum
-                self.copychecksum = c2 = self.tasks[3].checksum
+                self.testchecksum = c1 = self._test_checksum_task.checksum
+                self.copychecksum = c2 = self._verify_checksum_task.checksum
                 if c1 == c2:
                     logger.info('checksums match, %08x', c1)
                     self.checksum = self.testchecksum
@@ -540,7 +555,7 @@ class ReadVerifyTrackTask(task.MultiSeparateTask):
                     self.exception = ChecksumException(
                         'read and verify failed: test checksum')
 
-                if self.tasks[5].checksum != self.checksum:
+                if self._post_encode_checksum_task.checksum != self.checksum:
                     self.exception = ChecksumException(
                         'Encoding failed, checksum does not match')
 
