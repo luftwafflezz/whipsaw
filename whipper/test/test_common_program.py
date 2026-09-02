@@ -191,3 +191,64 @@ class RipTrackTestCase(unittest.TestCase):
         self.assertEqual(kwargs['arTotalTracks'], 2)
         self.assertIsNone(trackResult.arv1)
         self.assertIsNone(trackResult.arv2)
+
+
+class GetCDDBTestCase(unittest.TestCase):
+
+    @patch('whipper.extern.freedb.perform_lookup')
+    def testArtistSlashTitleIsParsed(self, mock_lookup):
+        mock_lookup.return_value = [{'DTITLE': 'The Artist / The Album'}]
+
+        md = program.Program.getCDDB(['id', 1, [0], 100])
+
+        self.assertEqual(md.artist, 'The Artist')
+        self.assertEqual(md.title, 'The Album')
+
+    @patch('whipper.extern.freedb.perform_lookup')
+    def testNoSeparatorFallsBackToWholeStringAsTitle(self, mock_lookup):
+        mock_lookup.return_value = [{'DTITLE': 'JustATitleNoSeparator'}]
+
+        md = program.Program.getCDDB(['id', 1, [0], 100])
+
+        self.assertEqual(md.artist, 'Unknown Artist')
+        self.assertEqual(md.title, 'JustATitleNoSeparator')
+
+    @patch('whipper.extern.freedb.perform_lookup')
+    def testNoMatchReturnsNone(self, mock_lookup):
+        mock_lookup.return_value = []
+
+        self.assertIsNone(program.Program.getCDDB(['id', 1, [0], 100]))
+
+    @patch('whipper.extern.freedb.perform_lookup')
+    def testProtocolErrorReturnsNone(self, mock_lookup):
+        mock_lookup.side_effect = ValueError('bad response')
+
+        self.assertIsNone(program.Program.getCDDB(['id', 1, [0], 100]))
+
+
+class GetDiscogsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.prog = program.Program(
+            config.Config('/nonexistent/whipper-test.conf'))
+
+    def testNoSearchHintReturnsNoneWithoutNetworkCall(self):
+        self.assertIsNone(self.prog.getDiscogs(None))
+
+    @patch('whipper.common.providers.metadata.discogs.search')
+    def testDelegatesToDiscogsSearch(self, mock_search):
+        expected = mbngs.DiscMetadata()
+        mock_search.return_value = expected
+
+        result = self.prog.getDiscogs('artist - title')
+
+        self.assertIs(result, expected)
+        mock_search.assert_called_once_with(self.prog._config,
+                                            'artist - title')
+
+    @patch('whipper.common.providers.metadata.discogs.search')
+    def testTransientErrorIsCaughtAndReturnsNone(self, mock_search):
+        from whipper.common.providers.base import ProviderTransientError
+        mock_search.side_effect = ProviderTransientError('timed out')
+
+        self.assertIsNone(self.prog.getDiscogs('artist - title'))

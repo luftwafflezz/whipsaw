@@ -28,6 +28,7 @@ from whipper.common import (
     accurip, config, drive, program, task
 )
 from whipper.common.common import validate_template
+from whipper.common.providers.metadata.cdtext import apply_cdtext_fallback
 from whipper.program import cdrdao, cdparanoia, ffmpeg, utils
 from whipper.result import result
 
@@ -88,6 +89,13 @@ class _CD(BaseCommand):
         parser.add_argument('-c', '--country',
                             action="store", dest="country",
                             help="Filter releases by country")
+        parser.add_argument('--search',
+                            action="store", dest="search", default=None,
+                            help="artist/title search hint for metadata "
+                            "fallback providers (e.g. Discogs) that can't "
+                            "identify a disc blind the way MusicBrainz "
+                            "can, used only if MusicBrainz and FreeDB "
+                            "both fail to find a match")
 
     def do(self):
         self.config = config.Config()
@@ -130,8 +138,22 @@ class _CD(BaseCommand):
             cddbid = self.ittoc.getCDDBValues()
             cddbmd = self.program.getCDDB(cddbid)
             if cddbmd:
-                logger.info('FreeDB identifies disc as %s', cddbmd)
+                logger.info('FreeDB identifies disc as %s - %s',
+                            cddbmd.artist, cddbmd.title)
+                self.program.metadata = cddbmd
 
+        if not self.program.metadata:
+            # Discogs can't identify a disc blind (no TOC-based lookup),
+            # so it only ever has something to work with if --search was
+            # passed explicitly.
+            discogsmd = self.program.getDiscogs(
+                getattr(self.options, 'search', None))
+            if discogsmd:
+                logger.info('Discogs identifies disc as %s - %s',
+                            discogsmd.artist, discogsmd.title)
+                self.program.metadata = discogsmd
+
+        if not self.program.metadata:
             # also used by rip cd info
             if not getattr(self.options, 'unknown', False):
                 logger.critical("unable to retrieve disc metadata, "
@@ -172,6 +194,13 @@ class _CD(BaseCommand):
             "full table's mb id %s differs from toc id mb %s" % (
             self.itable.getMusicBrainzDiscId(),
             self.ittoc.getMusicBrainzDiscId())
+
+        # CD-Text is only available now, from the full TOC read above (the
+        # fast TOC read earlier doesn't carry it) -- apply it as a last
+        # resort, filling in only whatever MusicBrainz/FreeDB/Discogs
+        # left missing, never overwriting an already-resolved value.
+        self.program.metadata = apply_cdtext_fallback(
+            self.program.metadata, self.itable)
 
         if self.program.metadata:
             self.program.metadata.discid = self.ittoc.getMusicBrainzDiscId()

@@ -31,6 +31,8 @@ from packaging.version import Version
 from whipper.common import accurip, checksum, common, mbngs, path
 from whipper.common.providers.art import chain as art_chain
 from whipper.common.providers.art.normalize import normalize as normalize_art
+from whipper.common.providers.base import ProviderTransientError
+from whipper.common.providers.metadata import discogs as discogs_metadata
 from whipper.program import cdrdao, cdparanoia
 from whipper.result import result
 from whipper.image import image
@@ -258,7 +260,12 @@ class Program:
         See: https://hydrogenaud.io/index.php?topic=118682
 
         :param cddbdiscid: list of id, tracks, offsets, seconds
-        :rtype: str
+        :returns: a DiscMetadata built from FreeDB's best matching
+                  "Artist / Album" title, or None if nothing was found.
+                  Sparse: no MusicBrainz IDs, no per-track titles --
+                  FreeDB's DTITLE carries no per-track signal the way
+                  CD-Text does.
+        :rtype: whipper.common.mbngs.DiscMetadata or None
         """
         # FIXME: convert to nonblocking?
         try:
@@ -266,19 +273,50 @@ class Program:
                      cddbdiscid, 'gnudb.gnudb.org', 80
             )
             logger.debug('CDDB query result: %r', md)
-            return [item['DTITLE'] for item in md if 'DTITLE' in item] or None
-
         except ValueError as e:
             logger.warning("CDDB protocol error: %s", e)
-
+            return None
         except IOError as e:
             # FIXME: for some reason errno is a str ?
             if e.errno == 'socket error':
                 logger.warning("CDDB network error: %r", (e, ))
-            else:
-                raise
+                return None
+            raise
 
-        return None
+        titles = [item['DTITLE'] for item in md if 'DTITLE' in item]
+        if not titles:
+            return None
+
+        # FreeDB's convention is "Artist / Album"; fall back to treating
+        # the whole string as the title if a release doesn't follow it.
+        artist, separator, title = titles[0].partition(' / ')
+        if not separator:
+            artist, title = 'Unknown Artist', titles[0]
+
+        metadata = mbngs.DiscMetadata()
+        metadata.artist = metadata.sortName = artist
+        metadata.title = metadata.releaseTitle = title
+        return metadata
+
+    def getDiscogs(self, search):
+        """
+        Fetch basic metadata from Discogs, given an explicit search hint.
+
+        Unlike MusicBrainz/FreeDB, Discogs has no disc-ID/TOC-based
+        lookup -- it can't identify a disc blind, only via a free-text
+        search (whipper's --search flag).
+
+        :param search: free-text search string (e.g. "artist - title"),
+                       or None
+        :type search: str or None
+        :returns: a whipper.common.mbngs.DiscMetadata, or None
+        :rtype: whipper.common.mbngs.DiscMetadata or None
+        """
+        try:
+            return discogs_metadata.search(self._config, search)
+        except ProviderTransientError as e:
+            logger.warning('discogs: %s', e)
+            return None
 
     def getMusicBrainz(self, ittoc, mbdiscid, release=None, country=None,
                        prompt=False):
