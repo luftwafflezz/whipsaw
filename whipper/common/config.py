@@ -38,6 +38,12 @@ DEFAULT_ART_PROVIDER_CHAIN = ['caa_release', 'caa_release_group', 'itunes']
 DEFAULT_ART_MAX_DIMENSION = 1200
 DEFAULT_ART_FORMAT = 'jpeg'
 
+DEFAULT_ENCODING_FORMAT = 'flac'
+DEFAULT_FLAC_COMPRESSION_LEVEL = 8
+DEFAULT_MP3_QUALITY = 0
+DEFAULT_OPUS_BITRATE = '320k'
+DEFAULT_AAC_BITRATE = '320k'
+
 
 class Config:
 
@@ -116,6 +122,31 @@ class Config:
     def get_provider_credential(self, section, key):
         """e.g. get_provider_credential('art:fanarttv', 'api_key')."""
         return self.get(section, key)
+
+    # encoding section
+
+    def get_encoding_format(self):
+        return self.get('encoding', 'format') or DEFAULT_ENCODING_FORMAT
+
+    def get_flac_compression_level(self):
+        raw = self.get('encoding', 'flac_compression_level')
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return DEFAULT_FLAC_COMPRESSION_LEVEL
+
+    def get_mp3_quality(self):
+        raw = self.get('encoding', 'mp3_quality')
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return DEFAULT_MP3_QUALITY
+
+    def get_opus_bitrate(self):
+        return self.get('encoding', 'opus_bitrate') or DEFAULT_OPUS_BITRATE
+
+    def get_aac_bitrate(self):
+        return self.get('encoding', 'aac_bitrate') or DEFAULT_AAC_BITRATE
 
     # drive sections
 

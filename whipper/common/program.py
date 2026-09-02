@@ -570,7 +570,15 @@ class Program:
 
     @staticmethod
     def verifyTrack(runner, trackResult):
-        is_wave = not trackResult.filename.endswith('.flac')
+        # is_wave=True means "already a raw WAV, no decode needed" --
+        # anything else (flac/m4a/mp3/opus/ogg/...) gets decoded via
+        # ffmpeg first. For lossy output formats this comparison will
+        # never match (lossy re-encoding doesn't round-trip to the exact
+        # source PCM), so a resumed rip simply always re-rips those
+        # tracks rather than trusting a checksum that can't be meaningful
+        # for lossy audio -- correct, if less efficient than for lossless
+        # formats.
+        is_wave = trackResult.filename.lower().endswith('.wav')
         t = checksum.CRC32Task(trackResult.filename, is_wave=is_wave)
 
         try:
