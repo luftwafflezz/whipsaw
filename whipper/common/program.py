@@ -29,10 +29,7 @@ from tempfile import NamedTemporaryFile
 from packaging.version import Version
 
 from whipper.common import accurip, checksum, common, mbngs, path
-from whipper.common.providers.art import chain as art_chain
-from whipper.common.providers.art.normalize import normalize as normalize_art
 from whipper.common.providers.base import ProviderTransientError
-from whipper.common.providers.metadata import discogs as discogs_metadata
 from whipper.program import cdrdao, cdparanoia
 from whipper.result import result
 from whipper.image import image
@@ -312,6 +309,15 @@ class Program:
         :returns: a whipper.common.mbngs.DiscMetadata, or None
         :rtype: whipper.common.mbngs.DiscMetadata or None
         """
+        if not search:
+            return None
+
+        # deferred: requests is optional (cover_art extra); only imported
+        # here, not at module load time, so whipper still runs fine
+        # without it as long as --search is never actually passed
+        from whipper.common.providers.metadata import (
+            discogs as discogs_metadata)
+
         try:
             return discogs_metadata.search(self._config, search)
         except ProviderTransientError as e:
@@ -568,6 +574,17 @@ class Program:
         :returns: path to the downloaded cover art, else `None`
         :rtype: str or None
         """
+        # deferred: pillow/requests are optional (cover_art extra) --
+        # importing them only here, not at module load time, means
+        # whipper still runs fine without them installed as long as
+        # cover art is never actually requested (callers should still
+        # check importlib.util.find_spec("PIL") before calling this, as
+        # cd.py does, to fail with a clear warning rather than an
+        # ImportError)
+        from whipper.common.providers.art import chain as art_chain
+        from whipper.common.providers.art.normalize import (
+            normalize as normalize_art)
+
         provider_chain = art_chain.build_chain(self._config)
         provider_name, art_result = provider_chain.run('fetch', metadata)
         if not art_result:

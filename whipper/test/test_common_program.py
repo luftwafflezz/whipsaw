@@ -252,3 +252,33 @@ class GetDiscogsTestCase(unittest.TestCase):
         mock_search.side_effect = ProviderTransientError('timed out')
 
         self.assertIsNone(self.prog.getDiscogs('artist - title'))
+
+    def testNoSearchHintSkipsImportEntirely(self):
+        # not just "returns None" -- the whole point is avoiding the
+        # transitive `import requests` when there's nothing to search
+        # for, so whipper works without it installed as long as
+        # --search is never passed
+        with patch('whipper.common.providers.metadata.discogs.search') \
+                as mock_search:
+            self.prog.getDiscogs(None)
+            mock_search.assert_not_called()
+
+
+class LazyOptionalImportsTestCase(unittest.TestCase):
+    """
+    Pillow and requests are optional (the `cover_art` extra), needed only
+    for cover-art fetching and the Discogs metadata fallback. Historically
+    whipper ran fine without them (cd.py checks importlib.util.find_spec
+    ("PIL") before ever calling getCoverArt()) -- pin that
+    whipper.common.program doesn't reintroduce a hard, module-load-time
+    dependency on either by importing them at the top of the file instead
+    of inside the specific methods that need them.
+    """
+
+    def testCoverArtAndDiscogsDependenciesAreNotImportedAtModuleLevel(self):
+        for name in ('art_chain', 'normalize_art', 'discogs_metadata'):
+            self.assertFalse(
+                hasattr(program, name),
+                '%r should be a lazy, function-local import in '
+                'getCoverArt()/getDiscogs(), not a module-level one -- '
+                'it transitively pulls in requests/PIL' % name)
