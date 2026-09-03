@@ -1,14 +1,19 @@
 # Whipper
 
-[![license](https://img.shields.io/github/license/whipper-team/whipper.svg)](https://github.com/whipper-team/whipper/blob/develop/LICENSE)
-[![Build Status](https://travis-ci.com/whipper-team/whipper.svg?branch=develop)](https://travis-ci.com/whipper-team/whipper)
-[![GitHub (pre-)release](https://img.shields.io/github/release/whipper-team/whipper/all.svg)](https://github.com/whipper-team/whipper/releases/latest)
-[![IRC](https://img.shields.io/badge/irc-%23whipper%40libera.chat-brightgreen.svg)](https://web.libera.chat/?channels=%23whipper)
-[![GitHub Stars](https://img.shields.io/github/stars/whipper-team/whipper.svg)](https://github.com/whipper-team/whipper/stargazers)
-[![GitHub Issues](https://img.shields.io/github/issues/whipper-team/whipper.svg)](https://github.com/whipper-team/whipper/issues)
-[![GitHub contributors](https://img.shields.io/github/contributors/whipper-team/whipper.svg)](https://github.com/whipper-team/whipper/graphs/contributors)
+> **This is an unofficial fork**, not affiliated with or endorsed by the
+> [whipper-team/whipper](https://github.com/whipper-team/whipper) project.
+> It builds on their work (GPLv3, see [LICENSE](LICENSE) and
+> [NOTICE](NOTICE)) with a rewritten cover-art fetch pipeline (a
+> configurable fallback chain across multiple sources, with reliability
+> fixes for embedding), a metadata fallback chain (MusicBrainz -> FreeDB
+> -> Discogs -> CD-Text), and ffmpeg-based multi-format encoding (FLAC,
+> WAV, ALAC, MP3, Opus, Vorbis, AAC) in place of the FLAC-only pipeline.
+> For anything not called out here or in [NOTICE](NOTICE), assume it
+> matches upstream whipper's own documentation and behavior.
 
-Whipper is a Python 3 (3.6+) CD-DA ripper based on the [morituri project](https://github.com/thomasvs/morituri) (_CDDA ripper for *nix systems aiming for accuracy over speed_). It started just as a fork of morituri - which development seems to have halted - merging old ignored pull requests, improving it with bugfixes and new features. Nowadays whipper's codebase diverges significantly from morituri's one.
+[![license](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+
+Whipper is a Python 3 (3.9+) CD-DA ripper based on the [morituri project](https://github.com/thomasvs/morituri) (_CDDA ripper for *nix systems aiming for accuracy over speed_). It started just as a fork of morituri - which development seems to have halted - merging old ignored pull requests, improving it with bugfixes and new features. Nowadays whipper's codebase diverges significantly from morituri's one.
 
 Whipper is currently developed and tested _only_ on Linux distributions but _may_ work fine on other *nix OSes too.
 
@@ -52,14 +57,15 @@ https://web.archive.org/web/20160528213242/https://thomas.apestaart.org/thomas/t
 - Detects whether ripped media is a CD-R
 - Has ability to defeat cache of drives
 - Performs Test & Copy rips
-- Verifies rip accuracy using the [AccurateRip database](http://www.accuraterip.com/)
-- Uses [MusicBrainz](https://musicbrainz.org/doc/About) for metadata lookup
+- Verifies rip accuracy using the [AccurateRip database](http://www.accuraterip.com/), independent of which output format you encode to (see [Configuration file documentation](#configuration-file-documentation))
+- Looks up metadata via a configurable fallback chain: [MusicBrainz](https://musicbrainz.org/doc/About) -> FreeDB -> Discogs (with a `--search` hint) -> the disc's own embedded CD-Text
+- Fetches cover art via a configurable fallback chain: Cover Art Archive (release, then release-group) -> iTunes -> fanart.tv/Discogs/Last.fm (optional, need API keys)
 - Supports reading the [pre-emphasis](http://wiki.hydrogenaud.io/index.php?title=Pre-emphasis) flag embedded into some CDs (and correctly tags the resulting rip)
   - _Currently whipper only reports the pre-emphasis flag value stored in the TOC_
 - Detects and rips _non digitally silent_ [Hidden Track One Audio](http://wiki.hydrogenaud.io/index.php?title=HTOA) (HTOA)
 - Provides batch ripping capabilities
 - Provides templates for file and directory naming
-- Supports lossless encoding of ripped audio tracks (FLAC)
+- Encodes ripped audio tracks via ffmpeg to FLAC (default), WAV, ALAC, MP3, Opus, Vorbis, or AAC
 - Allows extensibility through external logger plugins
 
 ## Changelog
@@ -277,6 +283,54 @@ output_directory = ~/My Music
 track_template = new/%%A/%%y - %%d/%%t - %%n
 disc_template =  new/%%A/%%y - %%d/%%A - %%d
 # ...
+```
+
+Every key below has a code-level default matching the behavior described
+in this document -- none of these sections need to exist for whipper to
+work, and adding one key doesn't require adding the rest.
+
+```INI
+[encoding]
+format = flac				; flac, wav, alac, mp3, opus, vorbis, or aac
+flac_compression_level = 8		; 0 (fastest) - 8 (smallest), ffmpeg's -compression_level
+mp3_quality = 0				; libmp3lame -q:a VBR quality, 0 (best) - 9 (worst)
+opus_bitrate = 320k			; libopus -b:a
+aac_bitrate = 320k			; ffmpeg's native aac encoder -b:a (not libfdk_aac,
+					; which most distro ffmpeg builds omit for licensing reasons)
+
+[cover_art]
+chain = caa_release, caa_release_group, itunes, fanarttv, discogs, lastfm
+					; tried in order; first provider to return an image wins
+max_dimension = 1200			; downscale to fit within this on the longest side
+format = jpeg				; re-encode target (a PNG with real transparency is
+					; kept as PNG regardless, rather than flattened)
+
+# providers needing no key/token (caa_release, caa_release_group, itunes)
+# are enabled by default; set `enabled = false` in their own section
+# (e.g. [art:itunes]) to turn one off.
+
+[art:fanarttv]
+enabled = false			; flips to effectively-enabled once api_key is set
+api_key =				; https://fanart.tv/get-an-api-key/
+
+[art:discogs]
+enabled = false			; flips to effectively-enabled once token is set
+token =					; https://www.discogs.com/settings/developers
+
+[art:lastfm]
+enabled = false			; requires BOTH `enabled = true` and api_key --
+					; weakest signal of the four, so a key alone isn't
+					; enough to turn it on
+api_key =				; https://www.last.fm/api/account/create
+
+[metadata]
+cdtext_fallback = true			; set to false to disable the CD-Text last-resort
+					; fallback entirely
+
+[metadata:discogs]
+token =					; only ever used with `whipper cd rip --search "..."`,
+					; since Discogs has no disc-ID lookup and can't
+					; identify a disc blind the way MusicBrainz can
 ```
 
 ## Running uninstalled

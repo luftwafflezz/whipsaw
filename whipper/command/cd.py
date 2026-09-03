@@ -203,11 +203,12 @@ class _CD(BaseCommand):
         # fast TOC read earlier doesn't carry it) -- apply it as a last
         # resort, filling in only whatever MusicBrainz/FreeDB/Discogs
         # left missing, never overwriting an already-resolved value.
-        had_metadata = self.program.metadata is not None
-        self.program.metadata = apply_cdtext_fallback(
-            self.program.metadata, self.itable)
-        if not had_metadata and self.program.metadata is not None:
-            self.program.result.metadataSource = 'cdtext'
+        if self.config.getboolean('metadata', 'cdtext_fallback') is not False:
+            had_metadata = self.program.metadata is not None
+            self.program.metadata = apply_cdtext_fallback(
+                self.program.metadata, self.itable)
+            if not had_metadata and self.program.metadata is not None:
+                self.program.result.metadataSource = 'cdtext'
 
         if self.program.metadata:
             self.program.metadata.discid = self.ittoc.getMusicBrainzDiscId()
