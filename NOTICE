@@ -1,0 +1,47 @@
+This is an unofficial fork of whipper (https://github.com/whipper-team/whipper),
+a GPLv3-licensed CD-DA ripper. It is not affiliated with or endorsed by
+the whipper-team/whipper project or its contributors.
+
+Per GPLv3 section 5(c), this NOTICE lists the substantive modifications
+made to the original work. See the git commit history for full detail.
+
+Base: whipper's `develop` branch, at commit 71251a0 (2026-09-02).
+
+Modifications:
+
+- Cover art fetching rewritten as a configurable provider chain (Cover
+  Art Archive at the release and release-group level, iTunes, and
+  optionally fanart.tv/Discogs/Last.fm), replacing the original's single
+  hardcoded Cover Art Archive call. Reliability fixes: cover art is
+  written atomically into the destination directory instead of the
+  system temp directory, provider failures no longer abort the whole
+  fetch, and embedded pictures are verified by reopening the file after
+  writing (catching a historical bug class where embedding silently did
+  nothing).
+
+- Metadata lookup extended with a fallback chain: MusicBrainz, then
+  FreeDB (previously looked up but never actually used), then Discogs
+  (via an explicit --search hint, since Discogs has no disc-ID lookup),
+  then the disc's own embedded CD-Text as a last resort.
+
+- Encoding rewritten to use ffmpeg instead of the standalone `flac`
+  binary, supporting FLAC (default, unchanged), WAV, ALAC, MP3, Opus,
+  Vorbis, and AAC. Tagging and cover art embedding generalized to work
+  across all of those containers (Vorbis comments, ID3, or MP4 atoms, as
+  appropriate) instead of FLAC only.
+
+- AccurateRip verification decoupled from the output encoding: checksums
+  are computed once, during ripping, from the pre-encode WAV, rather
+  than by re-decoding whichever final output file happened to exist --
+  necessary because AccurateRip verification previously assumed a
+  FLAC/WAV output, which no longer holds once other formats are
+  supported.
+
+- Various smaller fixes made along the way: a Python version floor that
+  didn't match what the code already required, several pre-existing
+  flake8 violations, a test that wrote a real file into the source tree
+  as a side effect, and a couple of resource/file-descriptor leaks.
+
+This fork remains licensed under the GNU General Public License v3 (or,
+per the original files' own headers, any later version), same as the
+original. See LICENSE for the full license text.
