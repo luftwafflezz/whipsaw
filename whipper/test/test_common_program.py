@@ -282,3 +282,15 @@ class LazyOptionalImportsTestCase(unittest.TestCase):
                 '%r should be a lazy, function-local import in '
                 'getCoverArt()/getDiscogs(), not a module-level one -- '
                 'it transitively pulls in requests/PIL' % name)
+
+    def testGetCoverArtFailsGracefullyWithoutRequests(self):
+        prog = program.Program(config.Config('/nonexistent/whipper-test.conf'))
+        with patch.dict('sys.modules', {'requests': None}):
+            result = prog.getCoverArt('/tmp', mbngs.DiscMetadata())
+        self.assertIsNone(result)
+
+    def testGetDiscogsFailsGracefullyWithoutRequests(self):
+        prog = program.Program(config.Config('/nonexistent/whipper-test.conf'))
+        with patch.dict('sys.modules', {'requests': None}):
+            result = prog.getDiscogs('artist - title')
+        self.assertIsNone(result)

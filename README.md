@@ -144,7 +144,8 @@ Whipper relies on the following packages in order to run correctly and provide a
 - [discid](https://pypi.org/project/discid/), for calculating Musicbrainz disc id.
 - [ruamel.yaml](https://pypi.org/project/ruamel.yaml/), for generating well formed YAML report logfiles
 - [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav files
-- [flac](https://xiph.org/flac/), for reading flac files
+- [flac](https://xiph.org/flac/), for reading flac files (the AccurateRip checksum extension decodes through it; whipper's own encoding no longer shells out to the `flac` binary directly, see [ffmpeg](https://ffmpeg.org/) below)
+- [ffmpeg](https://ffmpeg.org/), for encoding ripped tracks (FLAC, WAV, ALAC, MP3, Opus, Vorbis, or AAC -- see [Configuration file documentation](#configuration-file-documentation))
 - [sox](http://sox.sourceforge.net/), for track peak detection
 - [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
   - Required either when running whipper without installing it or when building it from its source code (code cloned from a git/mercurial repository).
@@ -155,16 +156,17 @@ Some dependencies aren't available in the PyPI. They can be probably installed u
 - [cdrdao](http://cdrdao.sourceforge.net/)
 - [libsndfile](http://www.mega-nerd.com/libsndfile/)
 - [flac](https://xiph.org/flac/)
+- [ffmpeg](https://ffmpeg.org/)
 - [sox](http://sox.sourceforge.net/)
 - [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
 - [libdiscid](https://musicbrainz.org/doc/libdiscid)
 
-PyPI installable dependencies are listed in the [requirements.txt](https://github.com/whipper-team/whipper/blob/develop/requirements.txt) file and can be installed issuing the following command:
+PyPI installable dependencies are listed in the [requirements.txt](requirements.txt) file and can be installed issuing the following command:
 
 `pip3 install -r requirements.txt`
 
 ### Optional dependencies
-- [Pillow](https://pypi.org/project/Pillow/), for completely supporting the cover art feature (`embed` and `complete` option values won't work otherwise).
+- [Pillow](https://pypi.org/project/Pillow/) and [requests](https://pypi.org/project/requests/) (bundled together as the `cover_art` extra), for cover art fetching in any mode (`file`/`embed`/`complete`) and for the Discogs metadata fallback (`--search`). Neither is required to rip at all -- without them, cover art fetching is skipped with a warning and Discogs is simply never tried.
 - [docutils](https://pypi.org/project/docutils/), to build the man pages.
 
 These dependencies are not listed in the `requirements.txt`. To install them, just issue the following command:

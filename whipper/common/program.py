@@ -315,8 +315,14 @@ class Program:
         # deferred: requests is optional (cover_art extra); only imported
         # here, not at module load time, so whipper still runs fine
         # without it as long as --search is never actually passed
-        from whipper.common.providers.metadata import (
-            discogs as discogs_metadata)
+        try:
+            from whipper.common.providers.metadata import (
+                discogs as discogs_metadata)
+        except ImportError as e:
+            logger.warning("--search was passed but Discogs support "
+                           "isn't available (%s); install the 'requests' "
+                           "package to use it", e)
+            return None
 
         try:
             return discogs_metadata.search(self._config, search)
@@ -577,13 +583,20 @@ class Program:
         # deferred: pillow/requests are optional (cover_art extra) --
         # importing them only here, not at module load time, means
         # whipper still runs fine without them installed as long as
-        # cover art is never actually requested (callers should still
-        # check importlib.util.find_spec("PIL") before calling this, as
-        # cd.py does, to fail with a clear warning rather than an
-        # ImportError)
-        from whipper.common.providers.art import chain as art_chain
-        from whipper.common.providers.art.normalize import (
-            normalize as normalize_art)
+        # cover art is never actually requested. cd.py already checks
+        # importlib.util.find_spec("PIL") before calling this, but that
+        # doesn't cover requests (needed by the iTunes/fanart.tv/Discogs/
+        # Last.fm providers), so guard here too rather than raising a
+        # raw ImportError mid-rip.
+        try:
+            from whipper.common.providers.art import chain as art_chain
+            from whipper.common.providers.art.normalize import (
+                normalize as normalize_art)
+        except ImportError as e:
+            logger.warning("cover art was requested but isn't available "
+                           "(%s); install the 'pillow' and 'requests' "
+                           "packages to use it", e)
+            return None
 
         provider_chain = art_chain.build_chain(self._config)
         provider_name, art_result = provider_chain.run('fetch', metadata)
