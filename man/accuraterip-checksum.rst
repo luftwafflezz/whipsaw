@@ -30,4 +30,4 @@ Options
 See Also
 ========
 
-whipper(1)
+whipsaw(1)

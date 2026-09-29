@@ -3,7 +3,7 @@ style guide
 
 Where possible when writing new code, try to stay as PEP8 compliant as possible.
 We understand that large portions of the codebase are not, but part of our
-ongoing efforts is to clean up whipper.
+ongoing efforts is to clean up whipsaw.
 
 major data structures
 ---------------------
@@ -44,7 +44,7 @@ unicode
 - Use asserts liberally to ensure this so we catch problems earlier.
 - All gst.parse_launch() pipelines should be passed as utf-8; use
   encode('utf-8')
-- whipper.extern.log.log is not unicode-safe; don't pass it unicode objects;
+- whipsaw.extern.log.log is not unicode-safe; don't pass it unicode objects;
   for example, always use %r to log paths
 - run with RIP_DEBUG=5 once in a while to catch unicode/logging errors.
 - Also use unicode prefix/suffix in tempfile.* methods; to force unicode.

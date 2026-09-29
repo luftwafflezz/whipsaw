@@ -30,7 +30,7 @@ jobs:
             libcdio-dev libdiscid-dev libgirepository1.0-dev \
             libiso9660-dev libsndfile1-dev sox swig gir1.2-glib-2.0
 
-      - name: Install whipper and test dependencies
+      - name: Install whipsaw and test dependencies
         run: |
           pip install --upgrade pip
           pip install -e ".[cover_art,test]"
@@ -53,7 +53,7 @@ jobs:
         run: pip install flake8
 
       - name: Run flake8
-        run: flake8 --benchmark --statistics whipper/
+        run: flake8 --benchmark --statistics whipsaw/
 
   man:
     runs-on: ubuntu-latest

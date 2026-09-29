@@ -12,7 +12,7 @@ REVISION
 # setup.py install generated files
 build/
 dist/
-whipper.egg-info/
+whipsaw.egg-info/
 
 # From coverage report
 .coverage

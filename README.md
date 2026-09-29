@@ -1,6 +1,7 @@
-# Whipper
+# Whipsaw
 
-> **This is an unofficial fork**, not affiliated with or endorsed by the
+> **This is an unofficial fork of [whipper](https://github.com/whipper-team/whipper)**,
+> renamed to **whipsaw** and not affiliated with or endorsed by the
 > [whipper-team/whipper](https://github.com/whipper-team/whipper) project.
 > It builds on their work (GPLv3, see [LICENSE](LICENSE) and
 > [NOTICE](NOTICE)) with a rewritten cover-art fetch pipeline (a
@@ -9,15 +10,16 @@
 > -> Discogs -> CD-Text), and ffmpeg-based multi-format encoding (FLAC,
 > WAV, ALAC, MP3, Opus, Vorbis, AAC) in place of the FLAC-only pipeline.
 > For anything not called out here or in [NOTICE](NOTICE), assume it
-> matches upstream whipper's own documentation and behavior.
+> matches upstream whipper's own documentation and behavior (with `whipper`
+> read as `whipsaw` throughout: command name, config paths, env vars, etc.).
 
 [![license](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
-Whipper is a Python 3 (3.9+) CD-DA ripper based on the [morituri project](https://github.com/thomasvs/morituri) (_CDDA ripper for *nix systems aiming for accuracy over speed_). It started just as a fork of morituri - which development seems to have halted - merging old ignored pull requests, improving it with bugfixes and new features. Nowadays whipper's codebase diverges significantly from morituri's one.
+Whipsaw is a Python 3 (3.9+) CD-DA ripper forked from [whipper](https://github.com/whipper-team/whipper), which itself was based on the [morituri project](https://github.com/thomasvs/morituri) (_CDDA ripper for *nix systems aiming for accuracy over speed_). See [NOTICE](NOTICE) for the specific changes made in this fork.
 
-Whipper is currently developed and tested _only_ on Linux distributions but _may_ work fine on other *nix OSes too.
+Whipsaw is currently developed and tested _only_ on Linux distributions but _may_ work fine on other *nix OSes too.
 
-In order to track whipper's latest changes it's advised to check its commit history (README and [CHANGELOG](#changelog) files may not be comprehensive).
+In order to track this fork's latest changes it's advised to check its commit history (README and [NOTICE](NOTICE) files may not be comprehensive). Upstream whipper's own history is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Table of content
 
@@ -61,7 +63,7 @@ https://web.archive.org/web/20160528213242/https://thomas.apestaart.org/thomas/t
 - Looks up metadata via a configurable fallback chain: [MusicBrainz](https://musicbrainz.org/doc/About) -> FreeDB -> Discogs (with a `--search` hint) -> the disc's own embedded CD-Text
 - Fetches cover art via a configurable fallback chain: Cover Art Archive (release, then release-group) -> iTunes -> fanart.tv/Discogs/Last.fm (optional, need API keys)
 - Supports reading the [pre-emphasis](http://wiki.hydrogenaud.io/index.php?title=Pre-emphasis) flag embedded into some CDs (and correctly tags the resulting rip)
-  - _Currently whipper only reports the pre-emphasis flag value stored in the TOC_
+  - _Currently whipsaw only reports the pre-emphasis flag value stored in the TOC_
 - Detects and rips _non digitally silent_ [Hidden Track One Audio](http://wiki.hydrogenaud.io/index.php?title=HTOA) (HTOA)
 - Provides batch ripping capabilities
 - Provides templates for file and directory naming
@@ -70,85 +72,74 @@ https://web.archive.org/web/20160528213242/https://thomas.apestaart.org/thomas/t
 
 ## Changelog
 
-See [CHANGELOG.md](https://github.com/whipper-team/whipper/blob/develop/CHANGELOG.md).
+This fork's changes are summarized in [NOTICE](NOTICE); check the commit history for full detail.
 
-For detailed information, please check the commit history.
+Upstream whipper's own changelog, up to the point this fork diverged, is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
-Whipper still isn't available as an official package in every Linux distributions so, in order to use it, it may be necessary to [build it from its source code](#building).
+Whipsaw is a personal fork and isn't published as a package anywhere, so it needs to be [built from source](#building). There's no hosted Docker image either; build one locally if you want it (see below).
 
 ### Docker
 
-You can easily install whipper without needing to care about the required dependencies by making use of the automatically built images hosted on [Docker Hub](https://hub.docker.com/r/whipperteam/whipper):
+To build the Docker image locally (it relies on the [Dockerfile](Dockerfile) included in this repository):
 
-`docker pull whipperteam/whipper`
-
-Please note that, right now, Docker Hub only builds whipper images for the `amd64` architecture: if you intend to use them on a different one, you'll need to build the images locally (as explained below).
-
-Building the Docker image locally is required in order to make it work on Arch Linux (and its derivatives) because of a group permission issue (for more details see [issue #499](https://github.com/whipper-team/whipper/issues/499)).
-
-To build the Docker image locally just issue the following command (it relies on the [Dockerfile](https://github.com/whipper-team/whipper/blob/develop/Dockerfile) included in whipper's repository):
-
-`optical_gid=$(getent group optical | cut -d: -f3) uid=$(id -u) docker build --build-arg optical_gid --build-arg uid -t whipperteam/whipper .`
+`optical_gid=$(getent group optical | cut -d: -f3) uid=$(id -u) docker build --build-arg optical_gid --build-arg uid -t whipsaw .`
 
 It's recommended to create an alias for a convenient usage:
 
 ```bash
-alias whipper="docker run -ti --rm --device=/dev/cdrom \
-    --mount type=bind,source=${HOME}/.config/whipper,target=/home/worker/.config/whipper \
+alias whipsaw="docker run -ti --rm --device=/dev/cdrom \
+    --mount type=bind,source=${HOME}/.config/whipsaw,target=/home/worker/.config/whipsaw \
     --mount type=bind,source=${PWD}/output,target=/output \
-    whipperteam/whipper"
+    whipsaw"
 ```
 
 You should put this e.g. into your `.bash_aliases`. Also keep in mind to replace the path definitions to something that fits to your needs (e.g. replace `… -v ${PWD}/output:/output …` with `… -v ${HOME}/ripped:/output \ …`).
 
-Essentially, what this does is to map the /home/worker/.config/whipper and ${PWD}/output (or whatever other directory you specified) on your host system to locations inside the Docker container where the files can be written and read. These directories need to exist on your system before you can run the container:
+Essentially, what this does is to map the /home/worker/.config/whipsaw and ${PWD}/output (or whatever other directory you specified) on your host system to locations inside the Docker container where the files can be written and read. These directories need to exist on your system before you can run the container:
 
-`mkdir -p "${HOME}/.config/whipper" "${PWD}/output"`
+`mkdir -p "${HOME}/.config/whipsaw" "${PWD}/output"`
 
-Please note that the example alias written above only provides access to a single disc drive: if you've got many you will need to customise it in order to use all of them in whipper's Docker container.
+Please note that the example alias written above only provides access to a single disc drive: if you've got many you will need to customise it in order to use all of them in whipsaw's Docker container.
 
 Finally, you can test the correct installation as such:
 
 ```
-whipper -v
-whipper drive list
+whipsaw -v
+whipsaw drive list
 ```
 
 ### Package
 
-This is a noncomprehensive summary which shows whipper's packaging status (unofficial repositories are probably not included):
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/whipper.svg)](https://repology.org/metapackage/whipper)
-
-**NOTE:** if installing whipper from an unofficial repository please keep in mind it is your responsibility to verify that the provided content is safe to use.
+Whipsaw isn't packaged for any distribution -- install it from source (see [Building](#building) below). For reference, upstream whipper's own packaging status (which this fork is not part of) is at [Repology](https://repology.org/metapackage/whipper).
 
 ## Building
 
-If you are building from a source tarball or checkout, you can choose to use whipper installed or uninstalled _but first install all the required dependencies_.
+If you are building from a source tarball or checkout, you can choose to use whipsaw installed or uninstalled _but first install all the required dependencies_.
 
 ### Required dependencies
 
-Whipper relies on the following packages in order to run correctly and provide all the supported features:
+Whipsaw relies on the following packages in order to run correctly and provide all the supported features:
 
 - [cd-paranoia](https://github.com/rocky/libcdio-paranoia), for the actual ripping
   - To avoid bugs it's advised to use `cd-paranoia` versions ≥ **10.2+0.94+2**
-  - The package named `libcdio-utils`, available on older Debian and Ubuntu versions, is affected by a bug: it doesn't include the `cd-paranoia` binary (needed by whipper). Starting with Debian bullseye (11) and Ubuntu focal (20.04), a separate`cd-paranoia` package is available which provides the aforementioned binary. For more details on this issue, please check the relevant bug reports: [#888053 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=888053), [#889803 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=889803) and [#1750264 (Ubuntu)](https://bugs.launchpad.net/ubuntu/+source/libcdio/+bug/1750264).
+  - The package named `libcdio-utils`, available on older Debian and Ubuntu versions, is affected by a bug: it doesn't include the `cd-paranoia` binary (needed by whipsaw). Starting with Debian bullseye (11) and Ubuntu focal (20.04), a separate`cd-paranoia` package is available which provides the aforementioned binary. For more details on this issue, please check the relevant bug reports: [#888053 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=888053), [#889803 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=889803) and [#1750264 (Ubuntu)](https://bugs.launchpad.net/ubuntu/+source/libcdio/+bug/1750264).
 - [cdrdao](http://cdrdao.sourceforge.net/), for session, TOC, pre-gap, and ISRC extraction
 - [musicbrainzngs](https://pypi.org/project/musicbrainzngs/), for metadata lookup
 - [mutagen](https://pypi.python.org/pypi/mutagen), for tagging support
 - [setuptools](https://pypi.python.org/pypi/setuptools), for installation, plugins support
 - [pycdio](https://pypi.python.org/pypi/pycdio/), for drive identification (required for drive offset and caching behavior to be stored in the configuration file).
   - To avoid bugs it's advised to use the most recent `pycdio` version with the corresponding `libcdio` release or, if stuck on old pycdio versions, **0.20**/**0.21** with `libcdio` ≥ **0.90** ≤ **0.94**. All other combinations won't probably work.
+  - On some distros (e.g. against Python 3.14) the PyPI sdist fails to build; installing with `--system-site-packages` in your venv and relying on your distro's `python-pycdio`/`PyGObject` packages works around this.
 - [discid](https://pypi.org/project/discid/), for calculating Musicbrainz disc id.
 - [ruamel.yaml](https://pypi.org/project/ruamel.yaml/), for generating well formed YAML report logfiles
 - [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav files
-- [flac](https://xiph.org/flac/), for reading flac files (the AccurateRip checksum extension decodes through it; whipper's own encoding no longer shells out to the `flac` binary directly, see [ffmpeg](https://ffmpeg.org/) below)
+- [flac](https://xiph.org/flac/), for reading flac files (the AccurateRip checksum extension decodes through it; whipsaw's own encoding no longer shells out to the `flac` binary directly, see [ffmpeg](https://ffmpeg.org/) below)
 - [ffmpeg](https://ffmpeg.org/), for encoding ripped tracks (FLAC, WAV, ALAC, MP3, Opus, Vorbis, or AAC -- see [Configuration file documentation](#configuration-file-documentation))
 - [sox](http://sox.sourceforge.net/), for track peak detection
 - [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
-  - Required either when running whipper without installing it or when building it from its source code (code cloned from a git/mercurial repository).
+  - Required either when running whipsaw without installing it or when building it from its source code (code cloned from a git/mercurial repository).
 
 Some dependencies aren't available in the PyPI. They can be probably installed using your distribution's package manager:
 
@@ -175,38 +166,38 @@ These dependencies are not listed in the `requirements.txt`. To install them, ju
 
 ### Fetching the source code
 
-Change to a directory where you want to put whipper source code (for example, `$HOME/dev/ext` or `$HOME/prefix/src`)
+Change to a directory where you want to put whipsaw source code (for example, `$HOME/dev/ext` or `$HOME/prefix/src`)
 
 ```bash
-git clone https://github.com/whipper-team/whipper.git
-cd whipper
+git clone https://github.com/luftwafflezz/whipsaw.git
+cd whipsaw
 ```
 
 ### Finalizing the build
 
-Install whipper: `python3 setup.py install`
+Install whipsaw: `python3 setup.py install`
 
 Note that, depending on the chosen installation path, this command may require elevated rights.
 
-To build the man pages, follow the instructions in the relevant [README](https://github.com/whipper-team/whipper/blob/develop/man/README.md) which is located in the `man` subfolder.
+To build the man pages, follow the instructions in the [README](man/README.md) located in the `man` subfolder.
 
 ## Usage
 
-Whipper currently only has a command-line interface called `whipper` which is self-documenting: `whipper -h` gives you the basic instructions.
+Whipsaw currently only has a command-line interface called `whipsaw` which is self-documenting: `whipsaw -h` gives you the basic instructions.
 
-Whipper implements a tree of commands: for example, the top-level `whipper` command has a number of sub-commands.
+Whipsaw implements a tree of commands: for example, the top-level `whipsaw` command has a number of sub-commands.
 
 Positioning of arguments is important:
 
-`whipper cd -d (device) rip`
+`whipsaw cd -d (device) rip`
 
 is correct, while
 
-`whipper cd rip -d (device)`
+`whipsaw cd rip -d (device)`
 
 is not, because the `-d` argument applies to the `cd` command.
 
-A more complete set of usage instructions can be found in the `whipper` [man pages](https://github.com/whipper-team/whipper/blob/develop/man/README.md).
+A more complete set of usage instructions can be found in the `whipsaw` [man pages](man/README.md).
 
 ## Getting started
 
@@ -215,31 +206,33 @@ The simplest way to get started making accurate rips is:
 1. Pick a relatively popular CD that has a good chance of being in the AccurateRip database
 2. Analyze the drive's caching behavior
 
-   `whipper drive analyze`
+   `whipsaw drive analyze`
 
 3. Find the drive's offset.
 
-   Consult the [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) for your drive. Drive information can be retrieved with `whipper drive list`.
+   Consult the [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) for your drive. Drive information can be retrieved with `whipsaw drive list`.
 
-   `whipper offset find -o insert-numeric-value-here`
+   `whipsaw offset find -o insert-numeric-value-here`
 
-   If you omit the `-o` argument, whipper will try a long, popularity-sorted list of drive offsets.
+   If you omit the `-o` argument, whipsaw will try a long, popularity-sorted list of drive offsets.
 
-   Please note that whipper's offset find feature is quite primitive so it may not always achieve its task: in this case using the value listed in [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) should be enough.
+   Please note that whipsaw's offset find feature is quite primitive so it may not always achieve its task: in this case using the value listed in [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) should be enough.
 
-   If you can not confirm your drive offset value but wish to set a default regardless, set `read_offset = insert-numeric-value-here` in `whipper.conf`.
+   If you can not confirm your drive offset value but wish to set a default regardless, set `read_offset = insert-numeric-value-here` in `whipsaw.conf`.
 
-   Offsets confirmed with `whipper offset find` are automatically written to the configuration file.
+   Offsets confirmed with `whipsaw offset find` are automatically written to the configuration file.
 
    If specifying the offset manually, please note that: if positive it must be written as a number without sign (ex: `+102` -> `102`), if negative it must include the sign too (ex: `-102` -> `-102`).
 
 4. Rip the disc by running
 
-   `whipper cd rip`
+   `whipsaw cd rip`
 
 ## Configuration file documentation
 
-The configuration file is stored in `$XDG_CONFIG_HOME/whipper/whipper.conf`, or `$HOME/.config/whipper/whipper.conf` if `$XDG_CONFIG_HOME` is undefined.
+The configuration file is stored in `$XDG_CONFIG_HOME/whipsaw/whipsaw.conf`, or `$HOME/.config/whipsaw/whipsaw.conf` if `$XDG_CONFIG_HOME` is undefined.
+
+**Note:** this is a new, separate path from whipper's own `~/.config/whipper/whipper.conf` -- an existing whipper config file is not read by whipsaw and won't be migrated automatically.
 
 See [XDG Base Directory
 Specification](http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html)
@@ -249,7 +242,7 @@ The configuration file consists of newline-delineated `[sections]`
 containing `key = value` pairs. The sections `[main]` and
 `[musicbrainz]` are special config sections for options not accessible
 from the command line interface.  Sections beginning with `drive` are
-written by whipper; certain values should not be edited. Inline comments can be added using `;`.
+written by whipsaw; certain values should not be edited. Inline comments can be added using `;`.
 
 Example configuration demonstrating all `[main]` and `[musicbrainz]`
 options:
@@ -270,14 +263,14 @@ server = https://musicbrainz.org	; use MusicBrainz server at host[:port]
 [drive:HL-20]
 defeats_cache = True			; whether the drive is capable of defeating the audio cache
 read_offset = 6				; drive read offset in positive/negative frames (no leading +)
-# do not edit the values 'vendor', 'model', and 'release'; they are used by whipper to match the drive
+# do not edit the values 'vendor', 'model', and 'release'; they are used by whipsaw to match the drive
 
-# top-level whipper arguments go in [whipper]; subcommand arguments go in [whipper.subcommand...]
-[whipper]
+# top-level whipsaw arguments go in [whipsaw]; subcommand arguments go in [whipsaw.subcommand...]
+[whipsaw]
 eject = always
 
-# command line defaults for `whipper cd rip`
-[whipper.cd.rip]
+# command line defaults for `whipsaw cd rip`
+[whipsaw.cd.rip]
 unknown = True
 output_directory = ~/My Music
 # Note: the format char '%' must be represented '%%'.
@@ -288,7 +281,7 @@ disc_template =  new/%%A/%%y - %%d/%%A - %%d
 ```
 
 Every key below has a code-level default matching the behavior described
-in this document -- none of these sections need to exist for whipper to
+in this document -- none of these sections need to exist for whipsaw to
 work, and adding one key doesn't require adding the rest.
 
 ```INI
@@ -330,40 +323,41 @@ cdtext_fallback = true			; set to false to disable the CD-Text last-resort
 					; fallback entirely
 
 [metadata:discogs]
-token =					; only ever used with `whipper cd rip --search "..."`,
+token =					; only ever used with `whipsaw cd rip --search "..."`,
 					; since Discogs has no disc-ID lookup and can't
 					; identify a disc blind the way MusicBrainz can
 ```
 
 ## Running uninstalled
 
-To make it easier for developers, you can run whipper straight from the
+To make it easier for developers, you can run whipsaw straight from the
 source checkout:
 
 ```bash
-python3 -m whipper -h
+python3 -m whipsaw -h
 ```
 
 ## Logger plugins
 
-Whipper allows using external logger plugins to customize the template of `.log` files.
+Whipsaw allows using external logger plugins to customize the template of `.log` files.
 
-The available plugins can be listed with `whipper cd rip -h`. Specify a logger to rip with by passing `-L loggername`:
+The available plugins can be listed with `whipsaw cd rip -h`. Specify a logger to rip with by passing `-L loggername`:
 
 ```bash
-whipper cd rip -L eac
+whipsaw cd rip -L eac
 ```
 
-Whipper searches for logger plugins using `importlib.metadata.entry_points`, meaning any package visible to the Python
-interpreter exporting a `whipper.logger` entry point will be loaded.
+Whipsaw searches for logger plugins using `importlib.metadata.entry_points`, meaning any package visible to the Python
+interpreter exporting a `whipsaw.logger` entry point will be loaded.
 
-Please note that locally installed logger plugins won't be recognized when whipper has been installed through the official Docker image.
+Please note that locally installed logger plugins won't be recognized when whipsaw has been installed through a Docker image.
 
 ### Official logger plugins
 
-I suggest using whipper's default logger unless you've got particular requirements.
-
-- [whipper-plugin-eaclogger](https://github.com/whipper-team/whipper-plugin-eaclogger) - a plugin for whipper which provides EAC style log reports
+Whipsaw's entry-point group changed from whipper's (`whipper.logger` -> `whipsaw.logger`) as part of the rename, so
+plugins written for upstream whipper -- e.g. [whipper-plugin-eaclogger](https://github.com/whipper-team/whipper-plugin-eaclogger),
+which provides EAC style log reports -- won't be auto-discovered here without updating their entry point to
+`whipsaw.logger`. Whipsaw ships the same default logger unless you've got particular requirements.
 
 ## License
 
@@ -392,7 +386,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 ## Contributing
 
 Make sure you have the latest copy from our [git
-repository](https://github.com/whipper-team/whipper). Where possible,
+repository](https://github.com/luftwafflezz/whipsaw). Where possible,
 please include tests for new or changed functionality. You can run tests
 with `python3 -m unittest discover` from your source checkout.
 
@@ -457,24 +451,26 @@ The DCO text can either be manually added to your commit body, or you can add ei
 
 ### Bug reports & feature requests
 
-Please use the [issue tracker](https://github.com/whipper-team/whipper/issues) to report any bugs or to file feature requests.
+Please use the [issue tracker](https://github.com/luftwafflezz/whipsaw/issues) to report any bugs or to file feature requests.
 
-When filing bug reports, please run the failing command with the environment variable `WHIPPER_DEBUG` set. For example:
+When filing bug reports, please run the failing command with the environment variable `WHIPSAW_DEBUG` set. For example:
 
 ```bash
-WHIPPER_DEBUG=DEBUG WHIPPER_LOGFILE=whipper.log whipper offset find
-gzip whipper.log
+WHIPSAW_DEBUG=DEBUG WHIPSAW_LOGFILE=whipsaw.log whipsaw offset find
+gzip whipsaw.log
 ```
 
 Finally, attach the gzipped log file to your bug report.
 
-Without `WHIPPER_LOGFILE` set, logging messages will go to stderr. `WHIPPER_DEBUG` accepts a string of the [default python logging levels](https://docs.python.org/3/library/logging.html#logging-levels).
+Without `WHIPSAW_LOGFILE` set, logging messages will go to stderr. `WHIPSAW_DEBUG` accepts a string of the [default python logging levels](https://docs.python.org/3/library/logging.html#logging-levels).
 
 _If you can, please try to help to solve [THIS issue](https://github.com/rocky/libcdio-paranoia/issues/14) which also has an [open bounty](https://www.bountysource.com/issues/60536098-incorrectly-fetches-track-length-with-certain-offsets) on Bountysource._
 
 ## Credits
 
-Thanks to:
+Whipsaw is maintained by [Ian Vidricksen](https://github.com/luftwafflezz) as a fork of whipper.
+
+Thanks to the original whipper/morituri authors and contributors:
 
 - [Thomas Vander Stichele](https://github.com/thomasvs)
 - [Joe Lametta](https://github.com/JoeLametta)
@@ -482,11 +478,12 @@ Thanks to:
 - [Frederik “Freso” S. Olesen](https://github.com/Freso)
 - [Merlijn Wajer](https://github.com/MerlijnWajer)
 
-And to all the [contributors](https://github.com/whipper-team/whipper/graphs/contributors).
+And to all of whipper's [contributors](https://github.com/whipper-team/whipper/graphs/contributors), whose work this fork builds on.
 
 ## Links
 
-You can find us and talk about the project on:
+This fork doesn't have its own community channels. For general whipper discussion
+(not fork-specific, and not affiliated with whipsaw), upstream can be found at:
 
 - IRC: **`#whipper`** channel on the [Libera.Chat](ircs://irc.libera.chat:6697) network
   - See [Libera.Chat’s guide on how to connect](https://libera.chat/guides/connect)
@@ -497,7 +494,9 @@ You can find us and talk about the project on:
   - Access Matrix through the [Element web client](https://app.element.io/#/room/#whipper:libera.chat)
 - [Redacted thread (official)](https://redacted.ch/forums.php?action=viewthread&threadid=150)
 
-Other relevant links:
+Other relevant links (about upstream whipper, not this fork):
 - [Whipper - Hydrogenaudio Knowledgebase](https://wiki.hydrogenaud.io/index.php?title=Whipper)
 - [Repology: versions for whipper](https://repology.org/metapackage/whipper/versions)
 - [Unattended ripping using whipper (by Thomas McWork)](https://github.com/thomas-mc-work/most-possible-unattended-rip)
+
+Bugs and questions specific to whipsaw belong on [this repository's issue tracker](https://github.com/luftwafflezz/whipsaw/issues), not upstream's.

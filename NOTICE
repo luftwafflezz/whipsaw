@@ -1,6 +1,9 @@
-This is an unofficial fork of whipper (https://github.com/whipper-team/whipper),
+Whipsaw is an unofficial fork of whipper (https://github.com/whipper-team/whipper),
 a GPLv3-licensed CD-DA ripper. It is not affiliated with or endorsed by
-the whipper-team/whipper project or its contributors.
+the whipper-team/whipper project or its contributors. The project was
+renamed from "whipper" to "whipsaw" at fork time; the modifications listed
+below (and the git history) still refer to whipper's own code and naming
+where that's what was actually changed.
 
 Per GPLv3 section 5(c), this NOTICE lists the substantive modifications
 made to the original work. See the git commit history for full detail.

@@ -1,7 +1,7 @@
 The man pages in this directory can be generated using the `rst2man` command
 line tool provided by the Python `docutils` project:
 
-    rst2man whipper.rst whipper.1
+    rst2man whipsaw.rst whipsaw.1
 
 Alternatively, you can also build all the man pages in this directory at the
 same time by running (requires `make`):

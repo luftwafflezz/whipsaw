@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2018 Frederik “Freso” S. Olesen -->
+<!-- Adapted for the whipsaw fork, 2026 -->
+<component type="console-application">
+  <id>com.github.luftwafflezz.Whipsaw</id>
+  <metadata_license>CC0-1.0</metadata_license>
+
+  <name>whipsaw</name>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer_name>Ian Vidricksen</developer_name>
+  <summary>A CD-DA ripper prioritising accuracy over speed (a fork of whipper)</summary>
+  <description>
+    <p>
+      whipsaw is a command-line CD-DA ripper that focuses on making accurate
+      rips over fast ones. It is an unofficial fork of whipper, with a
+      fallback-chain cover art/metadata pipeline and ffmpeg-based
+      multi-format encoding; see NOTICE in the source repository for details.
+    </p>
+  </description>
+
+  <url type="homepage">https://github.com/luftwafflezz/whipsaw</url>
+  <url type="bugtracker">https://github.com/luftwafflezz/whipsaw/issues</url>
+  <url type="help">https://github.com/luftwafflezz/whipsaw/blob/main/README.md</url>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Music</category>
+    <category>ConsoleOnly</category>
+  </categories>
+
+  <provides>
+    <binary>whipsaw</binary>
+  </provides>
+</component>

@@ -59,9 +59,9 @@ RUN ldconfig
 RUN useradd -m worker --uid ${uid} -G cdrom \
     && if [ -n "${optical_gid}" ]; then groupadd -f -g "${optical_gid}" optical \
     && usermod -a -G "${optical_gid}" worker; fi \
-    && mkdir -p /output /home/worker/.config/whipper \
-    && chown worker: /output /home/worker/.config/whipper
-VOLUME ["/home/worker/.config/whipper", "/output"]
+    && mkdir -p /output /home/worker/.config/whipsaw \
+    && chown worker: /output /home/worker/.config/whipsaw
+VOLUME ["/home/worker/.config/whipsaw", "/output"]
 
 # setup locales + cleanup
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment \
@@ -69,12 +69,12 @@ RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment \
     && echo "LANG=en_US.UTF-8" > /etc/locale.conf \
     && locale-gen en_US.UTF-8
 
-# install whipper
-RUN mkdir /whipper
-COPY . /whipper/
-RUN cd /whipper && python3 setup.py install \
-    && rm -rf /whipper \
-    && whipper -v
+# install whipsaw
+RUN mkdir /whipsaw
+COPY . /whipsaw/
+RUN cd /whipsaw && python3 setup.py install \
+    && rm -rf /whipsaw \
+    && whipsaw -v
 
 ENV LC_ALL=en_US.UTF-8
 ENV LANG=en_US
@@ -83,4 +83,4 @@ ENV PYTHONIOENCODING=utf-8
 
 USER worker
 WORKDIR /output
-ENTRYPOINT ["whipper"]
+ENTRYPOINT ["whipsaw"]
