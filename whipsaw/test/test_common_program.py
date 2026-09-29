@@ -221,7 +221,16 @@ class GetCDDBTestCase(unittest.TestCase):
 
     @patch('whipsaw.extern.freedb.perform_lookup')
     def testProtocolErrorReturnsNone(self, mock_lookup):
-        mock_lookup.side_effect = ValueError('bad response')
+        # perform_lookup is a real generator function: it only raises once
+        # iterated, not at call time. A side_effect exception on the mock
+        # itself would raise immediately instead, masking any bug in code
+        # that doesn't materialize the generator inside its try/except --
+        # so reproduce the lazy-raise shape here rather than call-time.
+        def raising_generator(*args, **kwargs):
+            raise ValueError('bad response')
+            yield  # pragma: no cover -- makes this a generator function
+
+        mock_lookup.side_effect = raising_generator
 
         self.assertIsNone(program.Program.getCDDB(['id', 1, [0], 100]))
 

@@ -266,9 +266,13 @@ class Program:
         """
         # FIXME: convert to nonblocking?
         try:
-            md = freedb.perform_lookup(
+            # perform_lookup is a generator: the network I/O and response
+            # parsing (where ValueError/IOError actually get raised) only
+            # happen once it's iterated, so it must be materialized here,
+            # inside the try -- not left lazy for a caller to consume later.
+            md = list(freedb.perform_lookup(
                      cddbdiscid, 'gnudb.gnudb.org', 80
-            )
+            ))
             logger.debug('CDDB query result: %r', md)
         except ValueError as e:
             logger.warning("CDDB protocol error: %s", e)
