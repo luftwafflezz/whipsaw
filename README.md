@@ -27,6 +27,9 @@ You need Python 3.9+, a C compiler and the libsndfile headers (they build the Ac
 ```bash
 yay -S whipsaw
 ```
+```bash
+paru -S whipsaw
+```
 
 The same PKGBUILD is in [packaging/arch](packaging/arch) if you'd rather build it yourself with `makepkg -si`.
 
