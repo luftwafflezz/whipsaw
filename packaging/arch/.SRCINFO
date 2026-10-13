@@ -30,6 +30,6 @@ pkgbase = whipsaw
 	optdepends = python-coloredlogs: colored log output when WHIPSAW_COLOR_LOG is set
 	conflicts = whipper
 	source = whipsaw-0.1.0.tar.gz::https://github.com/luftwafflezz/whipsaw/archive/refs/tags/v0.1.0.tar.gz
-	sha256sums = SKIP
+	sha256sums = 4deeb4133a524d866e6b041a204687fd87af3f5271be012362db326f2189f5db
 
 pkgname = whipsaw

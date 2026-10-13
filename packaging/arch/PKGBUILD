@@ -36,7 +36,7 @@ checkdepends=('python-twisted')
 optdepends=('python-coloredlogs: colored log output when WHIPSAW_COLOR_LOG is set')
 conflicts=('whipper')  # a fork meant to replace whipper, not run alongside it
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('4deeb4133a524d866e6b041a204687fd87af3f5271be012362db326f2189f5db')
 
 build() {
   cd "$pkgname-$pkgver"
