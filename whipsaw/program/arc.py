@@ -1,4 +1,4 @@
-import accuraterip
+from whipsaw import accuraterip
 
 
 def accuraterip_checksum(f, track_number, total_tracks):

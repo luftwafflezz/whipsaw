@@ -149,7 +149,7 @@ static PyMethodDef accuraterip_methods[] = {
 
 static struct PyModuleDef accuraterip_module = {
 	.m_base = PyModuleDef_HEAD_INIT,
-	.m_name = "accuraterip",
+	.m_name = "whipsaw.accuraterip",
 	.m_methods = accuraterip_methods,
 };
 
