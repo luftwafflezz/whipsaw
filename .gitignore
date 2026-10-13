@@ -12,10 +12,25 @@ REVISION
 # setup.py install generated files
 build/
 dist/
-whipsaw.egg-info/
+*.egg-info/
+.eggs/
+*.whl
 
 # From coverage report
 .coverage
+htmlcov/
+.pytest_cache/
 
-# Local virtualenv
+# Local virtualenvs, editor and tool state
 .venv/
+venv/
+.env
+.idea/
+.vscode/
+.claude/
+
+# makepkg output (packaging/arch)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.tar.gz
+packaging/arch/*.pkg.tar.*
