@@ -1,501 +1,111 @@
-# Whipsaw
+# whipsaw
 
-> **This is an unofficial fork of [whipper](https://github.com/whipper-team/whipper)**,
-> renamed to **whipsaw** and not affiliated with or endorsed by the
-> [whipper-team/whipper](https://github.com/whipper-team/whipper) project.
-> It builds on their work (GPLv3, see [LICENSE](LICENSE) and
-> [NOTICE](NOTICE)) with a rewritten cover-art fetch pipeline (a
-> configurable fallback chain across multiple sources, with reliability
-> fixes for embedding), a metadata fallback chain (MusicBrainz -> FreeDB
-> -> Discogs -> CD-Text), and ffmpeg-based multi-format encoding (FLAC,
-> WAV, ALAC, MP3, Opus, Vorbis, AAC) in place of the FLAC-only pipeline.
-> For anything not called out here or in [NOTICE](NOTICE), assume it
-> matches upstream whipper's own documentation and behavior (with `whipper`
-> read as `whipsaw` throughout: command name, config paths, env vars, etc.).
+A CD ripper for Linux that puts accuracy first. It rips securely with cdparanoia, checks every track against the [AccurateRip](http://www.accuraterip.com/) database, and looks up metadata and cover art on [MusicBrainz](https://musicbrainz.org/), falling back to other sources when that comes up empty. Tracks are encoded with ffmpeg (FLAC by default).
 
-[![license](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
-
-Whipsaw is a Python 3 (3.9+) CD-DA ripper forked from [whipper](https://github.com/whipper-team/whipper), which itself was based on the [morituri project](https://github.com/thomasvs/morituri) (_CDDA ripper for *nix systems aiming for accuracy over speed_). See [NOTICE](NOTICE) for the specific changes made in this fork.
-
-Whipsaw is currently developed and tested _only_ on Linux distributions but _may_ work fine on other *nix OSes too.
-
-In order to track this fork's latest changes it's advised to check its commit history (README and [NOTICE](NOTICE) files may not be comprehensive). Upstream whipper's own history is in [CHANGELOG.md](CHANGELOG.md).
-
-## Table of content
-
-- [Rationale](#rationale)
-- [Features](#features)
-- [Changelog](#changelog)
-- [Installation](#installation)
-  * [Docker](#docker)
-  * [Package](#package)
-- [Building](#building)
-  1. [Required dependencies](#required-dependencies)
-  2. [Optional dependencies](#optional-dependencies)
-  3. [Fetching the source code](#fetching-the-source-code)
-  4. [Finalizing the build](#finalizing-the-build)
-- [Usage](#usage)
-- [Getting started](#getting-started)
-- [Configuration file documentation](#configuration-file-documentation)
-- [Running uninstalled](#running-uninstalled)
-- [Logger plugins](#logger-plugins)
-  * [Official logger plugins](#official-logger-plugins)
-- [License](#license)
-- [Contributing](#contributing)
-  - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
-    - [DCO Sign-Off Methods](#dco-sign-off-methods)
-  - [Bug reports & feature requests](#bug-reports--feature-requests)
-- [Credits](#credits)
-- [Links](#links)
-
-## Rationale
-
-For a detailed description, see morituri's wiki page: [The Art of the Rip](
-https://web.archive.org/web/20160528213242/https://thomas.apestaart.org/thomas/trac/wiki/DAD/Rip).
+whipsaw is an unofficial fork of [whipper](https://github.com/whipper-team/whipper), not affiliated with or endorsed by its authors. It is GPLv3, and [NOTICE](NOTICE) lists what changed. It is meant to replace whipper, not run alongside it: the command, config file and environment variables are all renamed.
 
 ## Features
 
-- Detects correct read offset (in samples)
-- Detects whether ripped media is a CD-R
-- Has ability to defeat cache of drives
-- Performs Test & Copy rips
-- Verifies rip accuracy using the [AccurateRip database](http://www.accuraterip.com/), independent of which output format you encode to (see [Configuration file documentation](#configuration-file-documentation))
-- Looks up metadata via a configurable fallback chain: [MusicBrainz](https://musicbrainz.org/doc/About) -> FreeDB -> Discogs (with a `--search` hint) -> the disc's own embedded CD-Text
-- Fetches cover art via a configurable fallback chain: Cover Art Archive (release, then release-group) -> iTunes -> fanart.tv/Discogs/Last.fm (optional, need API keys)
-- Supports reading the [pre-emphasis](http://wiki.hydrogenaud.io/index.php?title=Pre-emphasis) flag embedded into some CDs (and correctly tags the resulting rip)
-  - _Currently whipsaw only reports the pre-emphasis flag value stored in the TOC_
-- Detects and rips _non digitally silent_ [Hidden Track One Audio](http://wiki.hydrogenaud.io/index.php?title=HTOA) (HTOA)
-- Provides batch ripping capabilities
-- Provides templates for file and directory naming
-- Encodes ripped audio tracks via ffmpeg to FLAC (default), WAV, ALAC, MP3, Opus, Vorbis, or AAC
-- Allows extensibility through external logger plugins
+- Secure ripping with cdparanoia: test and copy passes, drive offset detection, audio-cache detection, hidden track one audio (HTOA)
+- Every track verified against AccurateRip, computed from the raw audio, so the result is the same whichever format you encode to
+- Metadata from MusicBrainz, then FreeDB, then Discogs (with `--search`), then the disc's own CD-Text
+- Cover art from the Cover Art Archive (release, then release-group), then iTunes, then fanart.tv, Discogs or Last.fm (those three need keys); embedded pictures are re-read from disk to confirm they were written
+- Output via ffmpeg as FLAC (default), WAV, ALAC, MP3, Opus, Vorbis or AAC, tagged correctly for each container
+- A rip log recording the AccurateRip results and which metadata and cover art sources were used
 
-## Changelog
+## Install
 
-This fork's changes are summarized in [NOTICE](NOTICE); check the commit history for full detail.
+You need Python 3.9+, a C compiler and the libsndfile headers (they build the AccurateRip extension), plus:
 
-Upstream whipper's own changelog, up to the point this fork diverged, is in [CHANGELOG.md](CHANGELOG.md).
+- programs: `cd-paranoia` (libcdio-paranoia), `cdrdao`, `ffmpeg`, `sox` (with `soxi`) and `eject`
+- libraries: libsndfile and libdiscid
+- Python packages: musicbrainzngs, mutagen, pycdio, discid, ruamel.yaml and packaging
+- optional: Pillow and requests (cover art and Discogs; skipped with a warning if missing) and coloredlogs
 
-## Installation
-
-Whipsaw is a personal fork and isn't published as a package anywhere, so it needs to be [built from source](#building). There's no hosted Docker image either; build one locally if you want it (see below).
-
-### Docker
-
-To build the Docker image locally (it relies on the [Dockerfile](Dockerfile) included in this repository):
-
-`optical_gid=$(getent group optical | cut -d: -f3) uid=$(id -u) docker build --build-arg optical_gid --build-arg uid -t whipsaw .`
-
-It's recommended to create an alias for a convenient usage:
+**Arch Linux:** a PKGBUILD is in [packaging/arch](packaging/arch) (not on the AUR yet). It conflicts with the `whipper` package.
 
 ```bash
-alias whipsaw="docker run -ti --rm --device=/dev/cdrom \
-    --mount type=bind,source=${HOME}/.config/whipsaw,target=/home/worker/.config/whipsaw \
-    --mount type=bind,source=${PWD}/output,target=/output \
-    whipsaw"
+cd packaging/arch && makepkg -si
 ```
 
-You should put this e.g. into your `.bash_aliases`. Also keep in mind to replace the path definitions to something that fits to your needs (e.g. replace `… -v ${PWD}/output:/output …` with `… -v ${HOME}/ripped:/output \ …`).
-
-Essentially, what this does is to map the /home/worker/.config/whipsaw and ${PWD}/output (or whatever other directory you specified) on your host system to locations inside the Docker container where the files can be written and read. These directories need to exist on your system before you can run the container:
-
-`mkdir -p "${HOME}/.config/whipsaw" "${PWD}/output"`
-
-Please note that the example alias written above only provides access to a single disc drive: if you've got many you will need to customise it in order to use all of them in whipsaw's Docker container.
-
-Finally, you can test the correct installation as such:
-
-```
-whipsaw -v
-whipsaw drive list
-```
-
-### Package
-
-Whipsaw isn't packaged for any distribution -- install it from source (see [Building](#building) below). For reference, upstream whipper's own packaging status (which this fork is not part of) is at [Repology](https://repology.org/metapackage/whipper).
-
-## Building
-
-If you are building from a source tarball or checkout, you can choose to use whipsaw installed or uninstalled _but first install all the required dependencies_.
-
-### Required dependencies
-
-Whipsaw relies on the following packages in order to run correctly and provide all the supported features:
-
-- [cd-paranoia](https://github.com/rocky/libcdio-paranoia), for the actual ripping
-  - To avoid bugs it's advised to use `cd-paranoia` versions ≥ **10.2+0.94+2**
-  - The package named `libcdio-utils`, available on older Debian and Ubuntu versions, is affected by a bug: it doesn't include the `cd-paranoia` binary (needed by whipsaw). Starting with Debian bullseye (11) and Ubuntu focal (20.04), a separate`cd-paranoia` package is available which provides the aforementioned binary. For more details on this issue, please check the relevant bug reports: [#888053 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=888053), [#889803 (Debian)](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=889803) and [#1750264 (Ubuntu)](https://bugs.launchpad.net/ubuntu/+source/libcdio/+bug/1750264).
-- [cdrdao](http://cdrdao.sourceforge.net/), for session, TOC, pre-gap, and ISRC extraction
-- [musicbrainzngs](https://pypi.org/project/musicbrainzngs/), for metadata lookup
-- [mutagen](https://pypi.python.org/pypi/mutagen), for tagging support
-- [setuptools](https://pypi.python.org/pypi/setuptools), for building and installing (not needed at runtime)
-- [packaging](https://pypi.org/project/packaging/), for version comparisons
-- [pycdio](https://pypi.python.org/pypi/pycdio/), for drive identification (required for drive offset and caching behavior to be stored in the configuration file).
-  - To avoid bugs it's advised to use the most recent `pycdio` version with the corresponding `libcdio` release or, if stuck on old pycdio versions, **0.20**/**0.21** with `libcdio` ≥ **0.90** ≤ **0.94**. All other combinations won't probably work.
-  - On some distros (e.g. against Python 3.14) the PyPI sdist fails to build; installing with `--system-site-packages` in your venv and relying on your distro's `python-pycdio` package works around this.
-- [discid](https://pypi.org/project/discid/), for calculating Musicbrainz disc id.
-- [ruamel.yaml](https://pypi.org/project/ruamel.yaml/), for generating well formed YAML report logfiles
-- [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav and flac files (the AccurateRip checksum extension decodes through it, including FLAC via libFLAC; whipsaw no longer runs the standalone `flac` binary, encoding goes through [ffmpeg](https://ffmpeg.org/) below)
-- [ffmpeg](https://ffmpeg.org/), for encoding ripped tracks (FLAC, WAV, ALAC, MP3, Opus, Vorbis, or AAC -- see [Configuration file documentation](#configuration-file-documentation))
-- [sox](http://sox.sourceforge.net/), for track peak detection
-- [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
-  - Required either when running whipsaw without installing it or when building it from its source code (code cloned from a git/mercurial repository).
-
-Some dependencies aren't available in the PyPI. They can be probably installed using your distribution's package manager:
-
-- [cd-paranoia](https://github.com/rocky/libcdio-paranoia)
-- [cdrdao](http://cdrdao.sourceforge.net/)
-- [libsndfile](http://www.mega-nerd.com/libsndfile/)
-- [ffmpeg](https://ffmpeg.org/)
-- [sox](http://sox.sourceforge.net/)
-- [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
-- [libdiscid](https://musicbrainz.org/doc/libdiscid)
-
-PyPI installable dependencies are listed in the [requirements.txt](requirements.txt) file and can be installed issuing the following command:
-
-`pip3 install -r requirements.txt`
-
-### Optional dependencies
-- [Pillow](https://pypi.org/project/Pillow/) and [requests](https://pypi.org/project/requests/) (bundled together as the `cover_art` extra), for cover art fetching in any mode (`file`/`embed`/`complete`) and for the Discogs metadata fallback (`--search`). Neither is required to rip at all -- without them, cover art fetching is skipped with a warning and Discogs is simply never tried.
-- [docutils](https://pypi.org/project/docutils/), to build the man pages.
-
-These dependencies are not listed in the `requirements.txt`. To install them, just issue the following command:
-
-`pip3 install Pillow docutils`
-
-### Fetching the source code
-
-Change to a directory where you want to put whipsaw source code (for example, `$HOME/dev/ext` or `$HOME/prefix/src`)
+**From source**, in a virtualenv:
 
 ```bash
-git clone https://github.com/luftwafflezz/whipsaw.git
-cd whipsaw
+git clone https://github.com/luftwafflezz/whipsaw.git && cd whipsaw
+pip install ".[cover_art]"
 ```
 
-### Finalizing the build
-
-Install whipsaw: `python3 setup.py install`
-
-Note that, depending on the chosen installation path, this command may require elevated rights.
-
-To build the man pages, follow the instructions in the [README](man/README.md) located in the `man` subfolder.
+pycdio's PyPI release can fail to build on newer Pythons (it does on 3.14). If it does, install your distro's `python-pycdio` and create the virtualenv with `--system-site-packages`.
 
 ## Usage
 
-Whipsaw currently only has a command-line interface called `whipsaw` which is self-documenting: `whipsaw -h` gives you the basic instructions.
-
-Whipsaw implements a tree of commands: for example, the top-level `whipsaw` command has a number of sub-commands.
-
-Positioning of arguments is important:
-
-`whipsaw cd -d (device) rip`
-
-is correct, while
-
-`whipsaw cd rip -d (device)`
-
-is not, because the `-d` argument applies to the `cd` command.
-
-A more complete set of usage instructions can be found in the `whipsaw` [man pages](man/README.md).
-
-## Getting started
-
-The simplest way to get started making accurate rips is:
-
-1. Pick a relatively popular CD that has a good chance of being in the AccurateRip database
-2. Analyze the drive's caching behavior
-
-   `whipsaw drive analyze`
-
-3. Find the drive's offset.
-
-   Consult the [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) for your drive. Drive information can be retrieved with `whipsaw drive list`.
-
-   `whipsaw offset find -o insert-numeric-value-here`
-
-   If you omit the `-o` argument, whipsaw will try a long, popularity-sorted list of drive offsets.
-
-   Please note that whipsaw's offset find feature is quite primitive so it may not always achieve its task: in this case using the value listed in [AccurateRip's CD Drive Offset database](http://www.accuraterip.com/driveoffsets.htm) should be enough.
-
-   If you can not confirm your drive offset value but wish to set a default regardless, set `read_offset = insert-numeric-value-here` in `whipsaw.conf`.
-
-   Offsets confirmed with `whipsaw offset find` are automatically written to the configuration file.
-
-   If specifying the offset manually, please note that: if positive it must be written as a number without sign (ex: `+102` -> `102`), if negative it must include the sign too (ex: `-102` -> `-102`).
-
-4. Rip the disc by running
-
-   `whipsaw cd rip`
-
-## Configuration file documentation
-
-The configuration file is stored in `$XDG_CONFIG_HOME/whipsaw/whipsaw.conf`, or `$HOME/.config/whipsaw/whipsaw.conf` if `$XDG_CONFIG_HOME` is undefined.
-
-**Note:** this is a new, separate path from whipper's own `~/.config/whipper/whipper.conf` -- an existing whipper config file is not read by whipsaw and won't be migrated automatically.
-
-See [XDG Base Directory
-Specification](http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html)
-and [ConfigParser](https://docs.python.org/3/library/configparser.html) with `inline_comment_prefixes=(';')`.
-
-The configuration file consists of newline-delineated `[sections]`
-containing `key = value` pairs. The sections `[main]` and
-`[musicbrainz]` are special config sections for options not accessible
-from the command line interface.  Sections beginning with `drive` are
-written by whipsaw; certain values should not be edited. Inline comments can be added using `;`.
-
-Example configuration demonstrating all `[main]` and `[musicbrainz]`
-options:
-
-```INI
-[main]
-path_filter_dot = True			; replace leading dot with _
-path_filter_posix = True		; replace illegal chars in *nix OSes with _
-path_filter_vfat = False		; replace illegal chars in VFAT filesystems with _
-path_filter_whitespace = False		; replace all whitespace chars with _
-path_filter_printable = False		; replace all non printable ASCII chars with _
-
-[musicbrainz]
-server = https://musicbrainz.org	; use MusicBrainz server at host[:port]
-# use http as scheme if connecting to a plain http server. Example below:
-# server = http://example.com:8080
-
-[drive:HL-20]
-defeats_cache = True			; whether the drive is capable of defeating the audio cache
-read_offset = 6				; drive read offset in positive/negative frames (no leading +)
-# do not edit the values 'vendor', 'model', and 'release'; they are used by whipsaw to match the drive
-
-# top-level whipsaw arguments go in [whipsaw]; subcommand arguments go in [whipsaw.subcommand...]
-[whipsaw]
-eject = always
-
-# command line defaults for `whipsaw cd rip`
-[whipsaw.cd.rip]
-unknown = True
-output_directory = ~/My Music
-# Note: the format char '%' must be represented '%%'.
-# Do not add inline comments with an unescaped '%' character (else an 'InterpolationSyntaxError' will occur).
-track_template = new/%%A/%%y - %%d/%%t - %%n
-disc_template =  new/%%A/%%y - %%d/%%A - %%d
-# ...
+```bash
+whipsaw drive list            # find your drive
+whipsaw drive analyze         # does it cache audio?
+whipsaw offset find -o 6      # confirm the drive's read offset (saved to the config)
+whipsaw cd rip                # rip the disc in the drive
 ```
 
-Every key below has a code-level default matching the behavior described
-in this document -- none of these sections need to exist for whipsaw to
-work, and adding one key doesn't require adding the rest.
+Look up your drive's offset in [AccurateRip's list](http://www.accuraterip.com/driveoffsets.htm). A rip won't start until an offset is known, via `offset find` or `-o` on the rip command.
 
-```INI
+Options belong to the command they follow: `whipsaw cd -d /dev/sr0 rip`, not `whipsaw cd rip -d /dev/sr0`.
+
+Useful `cd rip` options:
+
+| Option | Effect |
+| --- | --- |
+| `-C`, `--cover-art file\|embed\|complete` | Save cover art as a file, embed it in the tracks, or both (off by default) |
+| `-U`, `--unknown` | Rip a disc that no metadata source recognizes |
+| `--search "artist - album"` | Hint for the Discogs fallback |
+| `-R`, `--release-id ID` | Use a specific MusicBrainz release |
+| `-O`, `--output-directory DIR` | Where to put the rip |
+| `--track-template`, `--disc-template` | File and directory naming |
+
+## Configuration
+
+The config file is `~/.config/whipsaw/whipsaw.conf` (or under `$XDG_CONFIG_HOME`). It is separate from whipper's, and nothing is migrated. Every setting has a default, so add only what you want to change:
+
+```ini
 [encoding]
-format = flac				; flac, wav, alac, mp3, opus, vorbis, or aac
-flac_compression_level = 8		; 0 (fastest) - 8 (smallest), ffmpeg's -compression_level
-mp3_quality = 0				; libmp3lame -q:a VBR quality, 0 (best) - 9 (worst)
-opus_bitrate = 320k			; libopus -b:a
-aac_bitrate = 320k			; ffmpeg's native aac encoder -b:a (not libfdk_aac,
-					; which most distro ffmpeg builds omit for licensing reasons)
+format = flac                ; flac, wav, alac, mp3, opus, vorbis or aac
+flac_compression_level = 8
+mp3_quality = 0              ; VBR quality, 0 (best) to 9
+opus_bitrate = 320k
+aac_bitrate = 320k
 
 [cover_art]
 chain = caa_release, caa_release_group, itunes, fanarttv, discogs, lastfm
-					; tried in order; first provider to return an image wins
-max_dimension = 1200			; downscale to fit within this on the longest side
-format = jpeg				; re-encode target (a PNG with real transparency is
-					; kept as PNG regardless, rather than flattened)
-
-# providers needing no key/token (caa_release, caa_release_group, itunes)
-# are enabled by default; set `enabled = false` in their own section
-# (e.g. [art:itunes]) to turn one off.
+max_dimension = 1200         ; downscale to fit
+format = jpeg
 
 [art:fanarttv]
-enabled = false			; flips to effectively-enabled once api_key is set
-api_key =				; https://fanart.tv/get-an-api-key/
-
+api_key =                    ; keyed providers stay off until a key is set
 [art:discogs]
-enabled = false			; flips to effectively-enabled once token is set
-token =					; https://www.discogs.com/settings/developers
-
+token =
 [art:lastfm]
-enabled = false			; requires BOTH `enabled = true` and api_key --
-					; weakest signal of the four, so a key alone isn't
-					; enough to turn it on
-api_key =				; https://www.last.fm/api/account/create
+enabled = false              ; needs enabled = true and an api_key
+api_key =
 
 [metadata]
-cdtext_fallback = true			; set to false to disable the CD-Text last-resort
-					; fallback entirely
-
+cdtext_fallback = true
 [metadata:discogs]
-token =					; only ever used with `whipsaw cd rip --search "..."`,
-					; since Discogs has no disc-ID lookup and can't
-					; identify a disc blind the way MusicBrainz can
+token =                      ; only used with --search
+
+[whipsaw.cd.rip]             ; defaults for `whipsaw cd rip` options
+output_directory = ~/Music/rips
 ```
 
-## Running uninstalled
+## Troubleshooting and development
 
-To make it easier for developers, you can run whipsaw straight from the
-source checkout:
+To debug a failing command, run it with `WHIPSAW_DEBUG=DEBUG WHIPSAW_LOGFILE=whipsaw.log` set and attach the log to a report on the [issue tracker](https://github.com/luftwafflezz/whipsaw/issues).
 
 ```bash
-python3 -m whipsaw -h
+pip install -e ".[cover_art,test]"
+python -m unittest discover
 ```
 
-## Logger plugins
+The man pages are built with `make -C man` (needs docutils).
 
-Whipsaw allows using external logger plugins to customize the template of `.log` files.
+## License and credits
 
-The available plugins can be listed with `whipsaw cd rip -h`. Specify a logger to rip with by passing `-L loggername`:
-
-```bash
-whipsaw cd rip -L eac
-```
-
-Whipsaw searches for logger plugins using `importlib.metadata.entry_points`, meaning any package visible to the Python
-interpreter exporting a `whipsaw.logger` entry point will be loaded.
-
-Please note that locally installed logger plugins won't be recognized when whipsaw has been installed through a Docker image.
-
-### Official logger plugins
-
-Whipsaw's entry-point group changed from whipper's (`whipper.logger` -> `whipsaw.logger`) as part of the rename, so
-plugins written for upstream whipper -- e.g. [whipper-plugin-eaclogger](https://github.com/whipper-team/whipper-plugin-eaclogger),
-which provides EAC style log reports -- won't be auto-discovered here without updating their entry point to
-`whipsaw.logger`. Whipsaw ships the same default logger unless you've got particular requirements.
-
-## License
-
-Licensed under the [GNU GPLv3 license](http://www.gnu.org/licenses/gpl-3.0).
-
-```Text
-Copyright (C) 2009 Thomas Vander Stichele
-Copyright (C) 2016-2021 The Whipper Team: JoeLametta, Samantha Baldwin,
-                        Merlijn Wajer, Frederik “Freso” S. Olesen, et al.
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software Foundation,
-Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
-```
-
-## Contributing
-
-Make sure you have the latest copy from our [git
-repository](https://github.com/luftwafflezz/whipsaw). Where possible,
-please include tests for new or changed functionality. You can run tests
-with `python3 -m unittest discover` from your source checkout.
-
-### Developer Certificate of Origin (DCO)
-
-To make a good faith effort to ensure licensing criteria are met, this project requires the Developer Certificate of Origin (DCO) process to be followed.
-
-The Developer Certificate of Origin (DCO) is a document that certifies you own and/or have the right to contribute the work and license it appropriately. The DCO is used instead of a _much more annoying_
-[CLA (Contributor License Agreement)](https://en.wikipedia.org/wiki/Contributor_License_Agreement). With the DCO, you retain copyright of your own work :). The DCO originated in the Linux community, and is used by other projects like Git and Docker.
-
-The DCO agreement is shown below, and it's also available online: [HERE](https://developercertificate.org/).
-
-```
-Developer Certificate of Origin
-Version 1.1
-
-Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
-1 Letterman Drive
-Suite D4700
-San Francisco, CA, 94129
-
-Everyone is permitted to copy and distribute verbatim copies of this
-license document, but changing it is not allowed.
-
-
-Developer's Certificate of Origin 1.1
-
-By making a contribution to this project, I certify that:
-
-(a) The contribution was created in whole or in part by me and I
-    have the right to submit it under the open source license
-    indicated in the file; or
-
-(b) The contribution is based upon previous work that, to the best
-    of my knowledge, is covered under an appropriate open source
-    license and I have the right under that license to submit that
-    work with modifications, whether created in whole or in part
-    by me, under the same open source license (unless I am
-    permitted to submit under a different license), as indicated
-    in the file; or
-
-(c) The contribution was provided directly to me by some other
-    person who certified (a), (b) or (c) and I have not modified
-    it.
-
-(d) I understand and agree that this project and the contribution
-    are public and that a record of the contribution (including all
-    personal information I submit with it, including my sign-off) is
-    maintained indefinitely and may be redistributed consistent with
-    this project or the open source license(s) involved.
-```
-
-#### DCO Sign-Off Methods
-
-The DCO requires a sign-off message in the following format appear on each commit in the pull request:
-
-```
-Signed-off-by: Full Name <email>
-```
-
-The DCO text can either be manually added to your commit body, or you can add either `-s` or `--signoff` to your usual Git commit commands. If you forget to add the sign-off you can also amend a previous commit with the sign-off by running `git commit --amend -s`.
-
-### Bug reports & feature requests
-
-Please use the [issue tracker](https://github.com/luftwafflezz/whipsaw/issues) to report any bugs or to file feature requests.
-
-When filing bug reports, please run the failing command with the environment variable `WHIPSAW_DEBUG` set. For example:
-
-```bash
-WHIPSAW_DEBUG=DEBUG WHIPSAW_LOGFILE=whipsaw.log whipsaw offset find
-gzip whipsaw.log
-```
-
-Finally, attach the gzipped log file to your bug report.
-
-Without `WHIPSAW_LOGFILE` set, logging messages will go to stderr. `WHIPSAW_DEBUG` accepts a string of the [default python logging levels](https://docs.python.org/3/library/logging.html#logging-levels).
-
-_If you can, please try to help to solve [THIS issue](https://github.com/rocky/libcdio-paranoia/issues/14) which also has an [open bounty](https://www.bountysource.com/issues/60536098-incorrectly-fetches-track-length-with-certain-offsets) on Bountysource._
-
-## Credits
-
-Whipsaw is maintained by [Ian Vidricksen](https://github.com/luftwafflezz) as a fork of whipper.
-
-Thanks to the original whipper/morituri authors and contributors:
-
-- [Thomas Vander Stichele](https://github.com/thomasvs)
-- [Joe Lametta](https://github.com/JoeLametta)
-- [Samantha Baldwin](https://github.com/RecursiveForest)
-- [Frederik “Freso” S. Olesen](https://github.com/Freso)
-- [Merlijn Wajer](https://github.com/MerlijnWajer)
-
-And to all of whipper's [contributors](https://github.com/whipper-team/whipper/graphs/contributors), whose work this fork builds on.
-
-## Links
-
-This fork doesn't have its own community channels. For general whipper discussion
-(not fork-specific, and not affiliated with whipsaw), upstream can be found at:
-
-- IRC: **`#whipper`** channel on the [Libera.Chat](ircs://irc.libera.chat:6697) network
-  - See [Libera.Chat’s guide on how to connect](https://libera.chat/guides/connect)
-    - Or just use the [Kiwi IRC web client](https://kiwiirc.com/nextclient/irc.libera.chat/?#whipper)
-- Matrix (the room is a portal to Libera Chat's IRC channel)
-  - Join to the room named **`#whipper`** (**`libera.chat`** is the homeserver)
-  - Use Matrix's invite link for [#whipper:libera.chat](https://matrix.to/#/#whipper:libera.chat)
-  - Access Matrix through the [Element web client](https://app.element.io/#/room/#whipper:libera.chat)
-- [Redacted thread (official)](https://redacted.ch/forums.php?action=viewthread&threadid=150)
-
-Other relevant links (about upstream whipper, not this fork):
-- [Whipper - Hydrogenaudio Knowledgebase](https://wiki.hydrogenaud.io/index.php?title=Whipper)
-- [Repology: versions for whipper](https://repology.org/metapackage/whipper/versions)
-- [Unattended ripping using whipper (by Thomas McWork)](https://github.com/thomas-mc-work/most-possible-unattended-rip)
-
-Bugs and questions specific to whipsaw belong on [this repository's issue tracker](https://github.com/luftwafflezz/whipsaw/issues), not upstream's.
+GPLv3 or later; see [LICENSE](LICENSE). whipsaw builds on whipper, by Thomas Vander Stichele (who started it as morituri) and The Whipper Team: Joe Lametta, Samantha Baldwin, Merlijn Wajer, Frederik "Freso" S. Olesen and its other contributors. It is maintained by [Ian Vidricksen](https://github.com/luftwafflezz).
