@@ -63,6 +63,23 @@ Useful `cd rip` options:
 | `-O`, `--output-directory DIR` | Where to put the rip |
 | `--track-template`, `--disc-template` | File and directory naming |
 
+Common examples:
+
+```bash
+whipsaw cd info                                # what MusicBrainz, FreeDB and AccurateRip know about the disc
+whipsaw cd rip -C complete                     # rip with cover art, saved as a file and embedded
+whipsaw cd rip -O ~/Music/rips                 # rip into a specific directory
+whipsaw cd rip -p                              # choose the release when several match
+whipsaw cd rip --search "artist - album"       # no MusicBrainz match: let Discogs try
+whipsaw cd rip -U                              # rip a disc nothing recognizes
+whipsaw cd rip -k                              # keep going if a track can't be ripped
+whipsaw cd rip --cdr                           # rip a CD-R (refused by default)
+whipsaw -e never cd rip                        # don't eject when finished
+whipsaw cd -d /dev/sr1 rip                     # use a second drive
+whipsaw image verify Album.cue                 # re-check an existing rip against AccurateRip
+whipsaw mblookup KnpGsLhvH.lPrNc1PBL21lb9Bg4-  # look up a MusicBrainz disc or release ID
+```
+
 ## Configuration
 
 The config file is `~/.config/whipsaw/whipsaw.conf` (or under `$XDG_CONFIG_HOME`). It is separate from whipper's, and nothing is migrated. Every setting has a default, so add only what you want to change:
