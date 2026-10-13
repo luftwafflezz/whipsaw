@@ -27,8 +27,8 @@ jobs:
           sudo apt-get -qq update
           sudo apt-get -qq install --no-install-recommends \
             cd-paranoia cdrdao flac ffmpeg git \
-            libcdio-dev libdiscid-dev libgirepository1.0-dev \
-            libiso9660-dev libsndfile1-dev sox swig gir1.2-glib-2.0
+            libcdio-dev libdiscid-dev \
+            libiso9660-dev libsndfile1-dev sox swig
 
       - name: Install whipsaw and test dependencies
         run: |

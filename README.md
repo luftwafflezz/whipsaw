@@ -131,7 +131,7 @@ Whipsaw relies on the following packages in order to run correctly and provide a
 - [setuptools](https://pypi.python.org/pypi/setuptools), for installation, plugins support
 - [pycdio](https://pypi.python.org/pypi/pycdio/), for drive identification (required for drive offset and caching behavior to be stored in the configuration file).
   - To avoid bugs it's advised to use the most recent `pycdio` version with the corresponding `libcdio` release or, if stuck on old pycdio versions, **0.20**/**0.21** with `libcdio` ≥ **0.90** ≤ **0.94**. All other combinations won't probably work.
-  - On some distros (e.g. against Python 3.14) the PyPI sdist fails to build; installing with `--system-site-packages` in your venv and relying on your distro's `python-pycdio`/`PyGObject` packages works around this.
+  - On some distros (e.g. against Python 3.14) the PyPI sdist fails to build; installing with `--system-site-packages` in your venv and relying on your distro's `python-pycdio` package works around this.
 - [discid](https://pypi.org/project/discid/), for calculating Musicbrainz disc id.
 - [ruamel.yaml](https://pypi.org/project/ruamel.yaml/), for generating well formed YAML report logfiles
 - [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav files
