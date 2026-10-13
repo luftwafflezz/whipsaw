@@ -22,11 +22,13 @@ You need Python 3.9+, a C compiler and the libsndfile headers (they build the Ac
 - Python packages: musicbrainzngs, mutagen, pycdio, discid, ruamel.yaml and packaging
 - optional: Pillow and requests (cover art and Discogs; skipped with a warning if missing) and coloredlogs
 
-**Arch Linux:** a PKGBUILD is in [packaging/arch](packaging/arch) (not on the AUR yet). It conflicts with the `whipper` package.
+**Arch Linux:** install [whipsaw from the AUR](https://aur.archlinux.org/packages/whipsaw) with your AUR helper. It conflicts with the `whipper` package, so remove that first.
 
 ```bash
-cd packaging/arch && makepkg -si
+yay -S whipsaw
 ```
+
+The same PKGBUILD is in [packaging/arch](packaging/arch) if you'd rather build it yourself with `makepkg -si`.
 
 **From source**, in a virtualenv:
 
