@@ -34,6 +34,7 @@ makedepends=(
 )
 checkdepends=('python-twisted')
 optdepends=('python-coloredlogs: colored log output when WHIPSAW_COLOR_LOG is set')
+conflicts=('whipper')  # a fork meant to replace whipper, not run alongside it
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
@@ -63,7 +64,7 @@ package() {
   cd "$pkgname-$pkgver"
   python -m installer --destdir="$pkgdir" dist/*.whl
   # Skip accuraterip-checksum.1: it documents a standalone CLI this fork
-  # doesn't build, and whipper's package already owns that file.
+  # doesn't build.
   install -Dm644 man/whipsaw*.1 -t "$pkgdir/usr/share/man/man1/"
   install -Dm644 com.github.luftwafflezz.Whipsaw.metainfo.xml -t "$pkgdir/usr/share/metainfo/"
   install -Dm644 NOTICE -t "$pkgdir/usr/share/licenses/$pkgname/"
