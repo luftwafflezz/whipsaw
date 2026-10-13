@@ -5,6 +5,7 @@ pkgbase = whipsaw
 	url = https://github.com/luftwafflezz/whipsaw
 	arch = x86_64
 	license = GPL-3.0-or-later
+	checkdepends = flac
 	checkdepends = python-twisted
 	makedepends = python-build
 	makedepends = python-docutils

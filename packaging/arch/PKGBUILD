@@ -32,7 +32,7 @@ makedepends=(
   'python-setuptools-scm'
   'python-wheel'
 )
-checkdepends=('python-twisted')
+checkdepends=('flac' 'python-twisted')  # tests run the flac binary directly
 optdepends=('python-coloredlogs: colored log output when WHIPSAW_COLOR_LOG is set')
 conflicts=('whipper')  # a fork meant to replace whipper, not run alongside it
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
