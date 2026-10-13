@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=77", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,13 +10,13 @@ authors = [
 description = "A CD-DA ripper prioritising accuracy over speed (a fork of whipper)"
 requires-python = ">=3.9"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE"]
 classifiers = [
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
     "Topic :: Multimedia :: Sound/Audio",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: GNU General Public License v3",
 ]
 dependencies = [
     "musicbrainzngs",
@@ -42,7 +42,8 @@ whipsaw = "whipsaw.command.main:main"
 # This is necessary, since whipsaw uses a flat-layout, but has as a 'src'
 # directory and setuptools gets confused otherwise.
 [tool.setuptools.packages.find]
-namespaces = false
+include = ["whipsaw*"]
+namespaces = true
 
 [tool.setuptools.package-data]
 "whipsaw" = ["test/**"]
