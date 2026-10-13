@@ -77,6 +77,37 @@ class EncodeTaskTestCase(unittest.TestCase):
             self.assertGreater(os.path.getsize(out_path), 0)
 
 
+class LossyToleranceTestCase(unittest.TestCase):
+    """
+    The lossy frame-count check with the counts supplied directly, so the
+    result doesn't depend on how well the local ffmpeg trims encoder
+    padding (it varies a lot between versions).
+    """
+
+    def _exception(self, format_name, orig_frames, decoded_frames):
+        t = encode.EncodeVerifyTask('orig.wav', 'encoded', format_name)
+        counts = {'orig.wav': orig_frames, 'decoded.wav': decoded_frames}
+        with patch.object(encode, '_wav_frame_count',
+                          side_effect=counts.__getitem__):
+            t._verify_lossy('decoded.wav')
+        return getattr(t, 'exception', None)
+
+    def testAacToleratesUntrimmedEndPadding(self):
+        # What ffmpeg 6.1 (GitHub's ubuntu-latest) decodes the 5880-frame
+        # test track to: six whole 1024-sample AAC frames.
+        self.assertIsNone(self._exception('aac', 5880, 6144))
+
+    def testAacToleratesPrimingAndPaddingBothUntrimmed(self):
+        self.assertIsNone(self._exception('aac', 5880, 5880 + 2 * 1023))
+
+    def testTruncationIsStillCaught(self):
+        # Ten seconds in, four seconds out is nowhere near encoder padding.
+        for format_name in ('mp3', 'aac', 'vorbis', 'opus'):
+            exception = self._exception(format_name, 441000, 264600)
+            self.assertIsInstance(exception, encode.EncodeVerificationError,
+                                  format_name)
+
+
 class EncodeVerifyTaskTestCase(unittest.TestCase):
 
     def setUp(self):

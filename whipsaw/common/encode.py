@@ -93,13 +93,20 @@ class EncodeVerifyTask(task.Task):
 
     description = 'Verifying encoded track'
 
-    # Empirically measured ffmpeg encoder priming/resampling deltas (see
-    # whipsaw/test/test_program_ffmpeg.py). Opus always resamples to/from
-    # 48kHz internally (it has no native 44.1kHz mode), which needs much
-    # more slack than the encoder-delay-only formats.
+    # Allowed difference between the decoded and source sample counts. This
+    # is only a sanity net against truncated or empty output, so it errs on
+    # the generous side. How tightly an ffmpeg build trims encoder priming
+    # and end padding varies between versions, so bounds follow the codec's
+    # frame structure rather than whatever one build happens to produce:
+    # - aac works in 1024-sample frames and pads the tail to a whole frame.
+    #   ffmpeg 6.1 doesn't trim that padding (it decodes the 5880-frame test
+    #   track as 6144 frames), while ffmpeg 9 trims it exactly. Two frames
+    #   also covers builds that skip the priming edit list.
+    # - opus always resamples to/from 48kHz internally (it has no native
+    #   44.1kHz mode), which needs much more slack.
     _LOSSY_FRAME_TOLERANCE = {
         'mp3': 200,
-        'aac': 200,
+        'aac': 2048,
         'vorbis': 200,
         'opus': 2000,
     }
