@@ -12,11 +12,11 @@ except PackageNotFoundError:
     __version__ = get_version()
 
 level = logging.INFO
-if 'WHIPPER_DEBUG' in os.environ:
-    level = os.environ['WHIPPER_DEBUG'].upper()
+if 'WHIPSAW_DEBUG' in os.environ:
+    level = os.environ['WHIPSAW_DEBUG'].upper()
 
 log_init_func = logging.basicConfig
-if 'WHIPPER_COLOR_LOG' in os.environ:
+if 'WHIPSAW_COLOR_LOG' in os.environ:
     import coloredlogs
 
     def init_coloredlogs(**kwargs):
@@ -24,8 +24,8 @@ if 'WHIPPER_COLOR_LOG' in os.environ:
         coloredlogs.install(fmt=logging.BASIC_FORMAT, **kwargs)
     log_init_func = init_coloredlogs
 
-if 'WHIPPER_LOGFILE' in os.environ:
-    log_init_func(filename=os.environ['WHIPPER_LOGFILE'],
+if 'WHIPSAW_LOGFILE' in os.environ:
+    log_init_func(filename=os.environ['WHIPSAW_LOGFILE'],
                   filemode='w', level=level)
 else:
     log_init_func(stream=sys.stderr, level=level)
