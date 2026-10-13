@@ -164,6 +164,14 @@ class EntryPoint:
         return logger.WhipsawLogger
 
 
+def _pluggable_entry_points():
+    """Return the entry points registered under ``whipsaw.logger``."""
+    eps = entry_points()
+    if hasattr(eps, 'select'):  # Python 3.10+
+        return list(eps.select(group='whipsaw.logger'))
+    return list(eps.get('whipsaw.logger', []))  # Python 3.9: a plain dict
+
+
 def getLoggers():
     """
     Get all logger plugins with entry point ``whipsaw.logger``.
@@ -172,7 +180,7 @@ def getLoggers():
     """
     d = {}
 
-    pluggables = list(entry_points(group="whipsaw.logger"))
+    pluggables = _pluggable_entry_points()
     for entrypoint in [EntryPoint(), ] + pluggables:
         plugin_class = entrypoint.load()
         d[entrypoint.name] = plugin_class
