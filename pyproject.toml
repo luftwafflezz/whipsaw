@@ -23,6 +23,7 @@ dependencies = [
     "mutagen",
     "pycdio",
     "ruamel.yaml",
+    "packaging",
     "setuptools_scm",
     "discid",
 ]

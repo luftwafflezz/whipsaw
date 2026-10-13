@@ -128,14 +128,14 @@ Whipsaw relies on the following packages in order to run correctly and provide a
 - [cdrdao](http://cdrdao.sourceforge.net/), for session, TOC, pre-gap, and ISRC extraction
 - [musicbrainzngs](https://pypi.org/project/musicbrainzngs/), for metadata lookup
 - [mutagen](https://pypi.python.org/pypi/mutagen), for tagging support
-- [setuptools](https://pypi.python.org/pypi/setuptools), for installation, plugins support
+- [setuptools](https://pypi.python.org/pypi/setuptools), for building and installing (not needed at runtime)
+- [packaging](https://pypi.org/project/packaging/), for version comparisons
 - [pycdio](https://pypi.python.org/pypi/pycdio/), for drive identification (required for drive offset and caching behavior to be stored in the configuration file).
   - To avoid bugs it's advised to use the most recent `pycdio` version with the corresponding `libcdio` release or, if stuck on old pycdio versions, **0.20**/**0.21** with `libcdio` ≥ **0.90** ≤ **0.94**. All other combinations won't probably work.
   - On some distros (e.g. against Python 3.14) the PyPI sdist fails to build; installing with `--system-site-packages` in your venv and relying on your distro's `python-pycdio` package works around this.
 - [discid](https://pypi.org/project/discid/), for calculating Musicbrainz disc id.
 - [ruamel.yaml](https://pypi.org/project/ruamel.yaml/), for generating well formed YAML report logfiles
-- [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav files
-- [flac](https://xiph.org/flac/), for reading flac files (the AccurateRip checksum extension decodes through it; whipsaw's own encoding no longer shells out to the `flac` binary directly, see [ffmpeg](https://ffmpeg.org/) below)
+- [libsndfile](http://www.mega-nerd.com/libsndfile/), for reading wav and flac files (the AccurateRip checksum extension decodes through it, including FLAC via libFLAC; whipsaw no longer runs the standalone `flac` binary, encoding goes through [ffmpeg](https://ffmpeg.org/) below)
 - [ffmpeg](https://ffmpeg.org/), for encoding ripped tracks (FLAC, WAV, ALAC, MP3, Opus, Vorbis, or AAC -- see [Configuration file documentation](#configuration-file-documentation))
 - [sox](http://sox.sourceforge.net/), for track peak detection
 - [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
@@ -146,7 +146,6 @@ Some dependencies aren't available in the PyPI. They can be probably installed u
 - [cd-paranoia](https://github.com/rocky/libcdio-paranoia)
 - [cdrdao](http://cdrdao.sourceforge.net/)
 - [libsndfile](http://www.mega-nerd.com/libsndfile/)
-- [flac](https://xiph.org/flac/)
 - [ffmpeg](https://ffmpeg.org/)
 - [sox](http://sox.sourceforge.net/)
 - [git](https://git-scm.com/) or [mercurial](https://www.mercurial-scm.org/)
